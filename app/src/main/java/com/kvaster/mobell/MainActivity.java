@@ -11,10 +11,6 @@ import java.io.InputStream;
 
 public class MainActivity extends Activity
 {
-    private static final String MOBOTIX_URL = "http://192.168.116.4/control/faststream.jpg?stream=MxPEG";
-    private static final String MOBOTIX_LOGIN = "";
-    private static final String MOBOTIX_PASSWORD = "";
-
     private GlView view;
 
     public MainActivity()
@@ -30,7 +26,7 @@ public class MainActivity extends Activity
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
 
-        view = new GlView(new MxpegApp(MOBOTIX_URL, MOBOTIX_LOGIN, MOBOTIX_PASSWORD), this, displayMetrics);
+        view = new GlView(new MxpegApp(BuildConfig.MOBOTIX_URL, BuildConfig.MOBOTIX_LOGIN, BuildConfig.MOBOTIX_PASS), this, displayMetrics);
 
         FrameLayout layout = new FrameLayout(this);
         layout.addView(view);
