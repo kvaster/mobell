@@ -1,5 +1,6 @@
 #include "mxpeg_renderer.h"
 
+
 static GLuint compileShader(const char* source, GLenum type)
 {
     GLuint handle = glCreateShader(type);
@@ -33,17 +34,24 @@ MxpegRenderer::MxpegRenderer()
 
     avcodec_register_all();
 
+    // FFmpeg video
     codec = avcodec_find_decoder(AV_CODEC_ID_MXPEG);
     codecCtx = nullptr;
     frame = av_frame_alloc();
     workFrame = av_frame_alloc();
 
-//    slCreateEngine(&slEngineObj, 0, nullptr, 0, nullptr, nullptr);
-//    (*slEngineObj)->Realize(slEngineObj, SL_BOOLEAN_FALSE);
-//    (*slEngineObj)->GetInterface(slEngineObj, SL_IID_ENGINE, &slEngineObj);
-//
-//    (*slEngine)->CreateOutputMix(slEngine, &slOutputMix, 0, nullptr, nullptr);
-//    (*slOutputMix)->Realize(slOutputMix, SL_BOOLEAN_FALSE);
+    // FFmpeg audio
+    audioCodec = avcodec_find_decoder(AV_CODEC_ID_PCM_ALAW);
+    audioCodecCtx = nullptr;
+    audioFrame = av_frame_alloc();
+
+    // SLES engines
+    slCreateEngine(&slEngineObj, 0, nullptr, 0, nullptr, nullptr);
+    (*slEngineObj)->Realize(slEngineObj, SL_BOOLEAN_FALSE);
+    (*slEngineObj)->GetInterface(slEngineObj, SL_IID_ENGINE, &slEngine);
+
+    (*slEngine)->CreateOutputMix(slEngine, &slOutputMix, 0, nullptr, nullptr);
+    (*slOutputMix)->Realize(slOutputMix, SL_BOOLEAN_FALSE);
 
     resume();
 }
@@ -53,6 +61,9 @@ MxpegRenderer::~MxpegRenderer()
     avcodec_free_context(&codecCtx);
     av_frame_free(&frame);
     av_frame_free(&workFrame);
+
+    avcodec_free_context(&audioCodecCtx);
+    av_frame_free(&audioFrame);
 
     pthread_mutex_destroy(&frameMutex);
 }
@@ -195,11 +206,18 @@ void MxpegRenderer::onStreamStart()
 {
     codecCtx = avcodec_alloc_context3(codec);
     avcodec_open2(codecCtx, codec, nullptr);
+
+    audioCodecCtx = avcodec_alloc_context3(audioCodec);
+    // mono, 8khz
+    audioCodecCtx->sample_rate = 8000;
+    audioCodecCtx->channels = 1;
+    avcodec_open2(audioCodecCtx, audioCodec, nullptr);
 }
 
 void MxpegRenderer::onStreamStop()
 {
     avcodec_free_context(&codecCtx);
+    avcodec_free_context(&audioCodecCtx);
 }
 
 void MxpegRenderer::onStreamVideoPacket(uint8_t* data, size_t size)
@@ -309,5 +327,25 @@ void MxpegRenderer::updateTextures()
 
 void MxpegRenderer::onStreamAudioPacket(uint8_t *data, size_t size)
 {
-    // TODO
+    AVPacket pkt;
+    av_init_packet(&pkt);
+
+    pkt.data = data;
+    pkt.size = size;
+
+    avcodec_send_packet(audioCodecCtx, &pkt);
+
+    bool got = false;
+    int ret = 0;
+    while (ret >= 0)
+    {
+        ret = avcodec_receive_frame(audioCodecCtx, audioFrame);
+
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            break;
+
+        if (ret < 0) // error
+            break;
+        got = true;
+    }
 }

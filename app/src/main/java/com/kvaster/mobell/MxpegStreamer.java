@@ -168,6 +168,28 @@ public class MxpegStreamer
                 // start of image
                 packetStart = r.pos() - 2;
             }
+            else if (marker == APP13)
+            {
+                // this is sound block
+                int len = (r.next() << 8) | r.next();
+
+                int duration = r.next() | (r.next() << 8) | (r.next() << 16) | (r.next() << 24);
+                long timestamp = 0;
+                for (int i = 0; i < 8; i++)
+                    timestamp |= ((long)r.next()) << (i * 8);
+
+                packetStart = r.pos();
+
+                r.move(len - 2 - 12);
+
+                //packetStart = packetEnd;
+                packetEnd = r.pos();
+                buffer.clear();
+                r.get(buffer, packetStart, packetEnd);
+                int size = buffer.position();
+                buffer.rewind();
+                listener.onStreamAudioPacket(buffer, size);
+            }
             else
             {
                 if (marker == SOF0)

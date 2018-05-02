@@ -14,4 +14,4 @@ add_library(mobell SHARED ${SOURCE_FILES})
 
 include_directories(${ffmpeg}/include)
 
-target_link_libraries(mobell log lib_avutil lib_avcodec GLESv2)
+target_link_libraries(mobell log lib_avutil lib_avcodec GLESv2 OpenSLES)

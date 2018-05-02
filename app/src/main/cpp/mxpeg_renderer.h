@@ -1,7 +1,3 @@
-//
-// Created by kva on 24.12.17.
-//
-
 #ifndef __MXPEG_RENDERER__
 #define __MXPEG_RENDERER__
 
@@ -48,16 +44,22 @@ private:
     int width;
     int height;
 
-    AVCodec* codec;
-    AVCodecContext* codecCtx;
-    AVFrame* frame;
-    AVFrame* workFrame;
-
     std::atomic_bool gotFrame;
     pthread_mutex_t frameMutex;
 
     void resetGl();
     void updateTextures();
+
+    // FFmpeg video
+    AVCodec* codec;
+    AVCodecContext* codecCtx;
+    AVFrame* frame;
+    AVFrame* workFrame;
+
+    // FFmpeg audio
+    AVCodec* audioCodec;
+    AVCodecContext* audioCodecCtx;
+    AVFrame* audioFrame;
 
     // sound
     SLObjectItf slEngineObj;
