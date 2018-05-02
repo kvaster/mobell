@@ -23,7 +23,7 @@ mobotix.pass="<password>"
 
 - [x] Simple streaming
 - [x] Video decoding and playing
-- [ ] Audio decoding and playing
+- [x] Audio decoding and playing
 - [ ] Audio recording/encoding
 - [ ] Stream recorded audio back to camera (door station)
 - [ ] Process ring events
