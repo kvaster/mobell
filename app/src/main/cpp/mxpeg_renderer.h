@@ -44,29 +44,41 @@ private:
     int width;
     int height;
 
-    std::atomic_bool gotFrame;
-    pthread_mutex_t frameMutex;
+    std::atomic_bool gotVideo;
+    pthread_mutex_t videoMutex;
 
     void resetGl();
     void updateTextures();
 
     // FFmpeg video
-    AVCodec* codec;
-    AVCodecContext* codecCtx;
-    AVFrame* frame;
-    AVFrame* workFrame;
+    AVCodec* videoCodec;
+    AVCodecContext* videoCodecCtx;
+    AVFrame* videoFrame;
+    AVFrame* videoWorkFrame;
 
     // FFmpeg audio
     AVCodec* audioCodec;
     AVCodecContext* audioCodecCtx;
     AVFrame* audioFrame;
+    AVFrame* audioWorkFrame;
+    AVFrame* audioEnqueueFrame;
 
-    // sound
-    SLObjectItf slEngineObj;
-    SLEngineItf slEngine;
-    SLObjectItf slOutputMix;
-    SLObjectItf slPlayerObj;
-    SLPlayItf slPlayer;
+    // sound engine, player and buffer
+    SLObjectItf audioEngineObj;
+    SLEngineItf audioEngine;
+    SLObjectItf audioOutputMix;
+    SLObjectItf audioPlayerObj;
+    SLPlayItf audioPlayer;
+    SLAndroidSimpleBufferQueueItf audioBufferQueue;
+
+    volatile bool gotAudio;
+    volatile bool audioEnqueued;
+    pthread_mutex_t audioMutex;
+
+    void enqueueAudio();
+
+public:
+    void playerCallback(SLAndroidSimpleBufferQueueItf bq);
 };
 
 #endif //__MXPEG_RENDERER__

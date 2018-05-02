@@ -1,6 +1,5 @@
 #include "mxpeg_renderer.h"
 
-
 static GLuint compileShader(const char* source, GLenum type)
 {
     GLuint handle = glCreateShader(type);
@@ -25,47 +24,116 @@ static GLuint compileFragmentShader(const char* source)
     return compileShader(source, GL_FRAGMENT_SHADER);
 }
 
+static void slesPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context)
+{
+    ((MxpegRenderer*)context)->playerCallback(bq);
+}
+
 /////////////////////////////////////////////////
 
 MxpegRenderer::MxpegRenderer()
 {
-    pthread_mutex_init(&frameMutex, nullptr);
-    gotFrame = false;
-
     avcodec_register_all();
 
-    // FFmpeg video
-    codec = avcodec_find_decoder(AV_CODEC_ID_MXPEG);
-    codecCtx = nullptr;
-    frame = av_frame_alloc();
-    workFrame = av_frame_alloc();
+    // Video
+    pthread_mutex_init(&videoMutex, nullptr);
+    gotVideo = false;
 
-    // FFmpeg audio
+    // FFmpeg video
+    videoCodec = avcodec_find_decoder(AV_CODEC_ID_MXPEG);
+    videoCodecCtx = nullptr;
+    videoFrame = av_frame_alloc();
+    videoWorkFrame = av_frame_alloc();
+
+    // Audio
+    pthread_mutex_init(&videoMutex, nullptr);
+    gotAudio = false;
+
     audioCodec = avcodec_find_decoder(AV_CODEC_ID_PCM_ALAW);
     audioCodecCtx = nullptr;
     audioFrame = av_frame_alloc();
+    audioWorkFrame = av_frame_alloc();
+    audioEnqueueFrame = av_frame_alloc();
 
-    // SLES engines
-    slCreateEngine(&slEngineObj, 0, nullptr, 0, nullptr, nullptr);
-    (*slEngineObj)->Realize(slEngineObj, SL_BOOLEAN_FALSE);
-    (*slEngineObj)->GetInterface(slEngineObj, SL_IID_ENGINE, &slEngine);
+    audioEngineObj = nullptr;
+    audioEngine = nullptr;
+    audioOutputMix = nullptr;
 
-    (*slEngine)->CreateOutputMix(slEngine, &slOutputMix, 0, nullptr, nullptr);
-    (*slOutputMix)->Realize(slOutputMix, SL_BOOLEAN_FALSE);
+    slCreateEngine(&audioEngineObj, 0, nullptr, 0, nullptr, nullptr);
+    (*audioEngineObj)->Realize(audioEngineObj, SL_BOOLEAN_FALSE);
+    (*audioEngineObj)->GetInterface(audioEngineObj, SL_IID_ENGINE, &audioEngine);
+
+    (*audioEngine)->CreateOutputMix(audioEngine, &audioOutputMix, 0, nullptr, nullptr);
+    (*audioOutputMix)->Realize(audioOutputMix, SL_BOOLEAN_FALSE);
+
+    // Audio player & sound buffer
+    audioPlayerObj = nullptr;
+    audioPlayer = nullptr;
+
+    SLDataLocator_AndroidSimpleBufferQueue locBufq = { SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 1 };
+
+    SLDataFormat_PCM formatPcm = {
+            SL_DATAFORMAT_PCM,
+            1,
+            SL_SAMPLINGRATE_8,
+            SL_PCMSAMPLEFORMAT_FIXED_16,
+            SL_PCMSAMPLEFORMAT_FIXED_16,
+            SL_ANDROID_SPEAKER_USE_DEFAULT,
+            SL_BYTEORDER_LITTLEENDIAN
+    };
+
+    SLDataSource audioSrc = { &locBufq, &formatPcm };
+    SLDataLocator_OutputMix locOutmix = { SL_DATALOCATOR_OUTPUTMIX, audioOutputMix };
+    SLDataSink audioSnk = { &locOutmix, NULL };
+
+    const SLInterfaceID ids[2] = { SL_IID_BUFFERQUEUE, SL_IID_VOLUME };
+    const SLboolean req[2] = { SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE };
+    (*audioEngine)->CreateAudioPlayer(audioEngine, &audioPlayerObj, &audioSrc, &audioSnk, 2, ids, req);
+    (*audioPlayerObj)->Realize(audioPlayerObj, SL_BOOLEAN_FALSE);
+    (*audioPlayerObj)->GetInterface(audioPlayerObj, SL_IID_PLAY, &audioPlayer);
+    (*audioPlayerObj)->GetInterface(audioPlayerObj, SL_IID_BUFFERQUEUE, &audioBufferQueue);
+    (*audioBufferQueue)->RegisterCallback(audioBufferQueue, slesPlayerCallback, this);
 
     resume();
 }
 
 MxpegRenderer::~MxpegRenderer()
 {
-    avcodec_free_context(&codecCtx);
-    av_frame_free(&frame);
-    av_frame_free(&workFrame);
+    // audio
+    if (audioPlayerObj)
+    {
+        (*audioPlayerObj)->Destroy(audioPlayerObj);
+        audioPlayerObj = nullptr;
+        audioPlayer = nullptr;
+        audioBufferQueue = nullptr;
+    }
+
+    if (audioOutputMix)
+    {
+        (*audioOutputMix)->Destroy(audioOutputMix);
+        audioOutputMix = nullptr;
+    }
+
+    if (audioEngineObj)
+    {
+        (*audioEngineObj)->Destroy(audioEngineObj);
+        audioEngineObj = nullptr;
+        audioEngineObj = nullptr;
+    }
 
     avcodec_free_context(&audioCodecCtx);
     av_frame_free(&audioFrame);
+    av_frame_free(&audioWorkFrame);
+    av_frame_free(&audioEnqueueFrame);
 
-    pthread_mutex_destroy(&frameMutex);
+    pthread_mutex_destroy(&audioMutex);
+
+    // video
+    avcodec_free_context(&videoCodecCtx);
+    av_frame_free(&videoFrame);
+    av_frame_free(&videoWorkFrame);
+
+    pthread_mutex_destroy(&videoMutex);
 }
 
 void MxpegRenderer::resetGl()
@@ -204,19 +272,27 @@ void MxpegRenderer::canvasSizeChanged(int width, int height)
 
 void MxpegRenderer::onStreamStart()
 {
-    codecCtx = avcodec_alloc_context3(codec);
-    avcodec_open2(codecCtx, codec, nullptr);
+    videoCodecCtx = avcodec_alloc_context3(videoCodec);
+    avcodec_open2(videoCodecCtx, videoCodec, nullptr);
+    gotVideo = false;
 
     audioCodecCtx = avcodec_alloc_context3(audioCodec);
     // mono, 8khz
     audioCodecCtx->sample_rate = 8000;
     audioCodecCtx->channels = 1;
     avcodec_open2(audioCodecCtx, audioCodec, nullptr);
+    gotAudio = false;
+    audioEnqueued = false;
+
+    (*audioBufferQueue)->Clear(audioBufferQueue);
+    (*audioPlayer)->SetPlayState(audioPlayer, SL_PLAYSTATE_PLAYING);
 }
 
 void MxpegRenderer::onStreamStop()
 {
-    avcodec_free_context(&codecCtx);
+    (*audioPlayer)->SetPlayState(audioPlayer, SL_PLAYSTATE_STOPPED);
+
+    avcodec_free_context(&videoCodecCtx);
     avcodec_free_context(&audioCodecCtx);
 }
 
@@ -228,15 +304,15 @@ void MxpegRenderer::onStreamVideoPacket(uint8_t* data, size_t size)
     pkt.data = data;
     pkt.size = size;
 
-    avcodec_send_packet(codecCtx, &pkt);
+    avcodec_send_packet(videoCodecCtx, &pkt);
 
-    pthread_mutex_lock(&frameMutex);
+    pthread_mutex_lock(&videoMutex);
 
     bool got = false;
     int ret = 0;
     while (ret >= 0)
     {
-        ret = avcodec_receive_frame(codecCtx, workFrame);
+        ret = avcodec_receive_frame(videoCodecCtx, videoWorkFrame);
 
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
             break;
@@ -244,21 +320,21 @@ void MxpegRenderer::onStreamVideoPacket(uint8_t* data, size_t size)
         if (ret < 0) // error
             break;
 
-        av_frame_unref(frame);
-        av_frame_ref(frame, workFrame);
+        av_frame_unref(videoFrame);
+        av_frame_ref(videoFrame, videoWorkFrame);
         got = true;
     }
 
-    pthread_mutex_unlock(&frameMutex);
+    pthread_mutex_unlock(&videoMutex);
 
     if (got)
-        gotFrame = true;
+        gotVideo = true;
 }
 
 void MxpegRenderer::update()
 {
     bool got = true;
-    if (gotFrame.compare_exchange_strong(got, false))
+    if (gotVideo.compare_exchange_strong(got, false))
         updateTextures();
 }
 
@@ -286,16 +362,16 @@ void MxpegRenderer::draw()
 
 void MxpegRenderer::updateTextures()
 {
-    pthread_mutex_lock(&frameMutex);
+    pthread_mutex_lock(&videoMutex);
 
-    if (frame->width > 0 && frame->height > 0)
+    if (videoFrame->width > 0 && videoFrame->height > 0)
     {
-        width = frame->width;
-        height = frame->height;
+        width = videoFrame->width;
+        height = videoFrame->height;
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, yTex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, frame->data[0]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width, height, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, videoFrame->data[0]);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -303,7 +379,7 @@ void MxpegRenderer::updateTextures()
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, uTex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width / 2, height / 2, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, frame->data[1]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width / 2, height / 2, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, videoFrame->data[1]);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -311,7 +387,7 @@ void MxpegRenderer::updateTextures()
 
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, vTex);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width / 2, height / 2, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, frame->data[2]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, width / 2, height / 2, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, videoFrame->data[2]);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -322,7 +398,7 @@ void MxpegRenderer::updateTextures()
         width = height = 0;
     }
 
-    pthread_mutex_unlock(&frameMutex);
+    pthread_mutex_unlock(&videoMutex);
 }
 
 void MxpegRenderer::onStreamAudioPacket(uint8_t *data, size_t size)
@@ -335,17 +411,51 @@ void MxpegRenderer::onStreamAudioPacket(uint8_t *data, size_t size)
 
     avcodec_send_packet(audioCodecCtx, &pkt);
 
-    bool got = false;
     int ret = 0;
     while (ret >= 0)
     {
-        ret = avcodec_receive_frame(audioCodecCtx, audioFrame);
+        ret = avcodec_receive_frame(audioCodecCtx, audioWorkFrame);
 
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
             break;
 
         if (ret < 0) // error
             break;
-        got = true;
+
+        pthread_mutex_lock(&audioMutex);
+
+        av_frame_unref(audioFrame);
+        av_frame_ref(audioFrame, audioWorkFrame);
+
+        if (audioEnqueued)
+            gotAudio = true;
+        else
+            enqueueAudio();
+
+        pthread_mutex_unlock(&audioMutex);
     }
+}
+
+void MxpegRenderer::enqueueAudio()
+{
+    av_frame_unref(audioEnqueueFrame);
+    av_frame_ref(audioEnqueueFrame, audioFrame);
+
+    //(*audioBufferQueue)->Enqueue(audioBufferQueue, audioEnqueueFrame->data[0], (SLuint32)audioEnqueueFrame->linesize[0]);
+    (*audioBufferQueue)->Enqueue(audioBufferQueue, audioEnqueueFrame->data[0], (SLuint32)audioEnqueueFrame->nb_samples * 2);
+
+    gotAudio = false;
+    audioEnqueued = true;
+}
+
+void MxpegRenderer::playerCallback(SLAndroidSimpleBufferQueueItf bq)
+{
+    pthread_mutex_lock(&audioMutex);
+
+    if (gotAudio)
+        enqueueAudio();
+    else
+        audioEnqueued = false;
+
+    pthread_mutex_unlock(&audioMutex);
 }
