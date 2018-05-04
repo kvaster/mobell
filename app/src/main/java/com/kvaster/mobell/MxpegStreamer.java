@@ -27,10 +27,6 @@ public class MxpegStreamer
     private volatile boolean keepRunning;
     private Thread thread;
 
-    private int keyframeStart = 0;
-    private int packetStart = 0;
-    private int packetEnd = 0;
-
     private final ByteBuffer buffer = ByteBuffer.allocateDirect(1024 * 1024 * 2);
 
     public MxpegStreamer(String url, String login, String password, Listener listener) throws MalformedURLException
@@ -78,10 +74,6 @@ public class MxpegStreamer
         {
             try
             {
-                keyframeStart = 0;
-                packetStart = 0;
-                packetEnd = 0;
-
                 HttpURLConnection conn = (HttpURLConnection)url.openConnection();
                 String encoded = Base64.encodeToString((login + ":" + password).getBytes(), Base64.NO_WRAP);
                 conn.addRequestProperty("Authorization", "Basic " + encoded);
@@ -106,7 +98,7 @@ public class MxpegStreamer
                         try (InputStream is = conn.getInputStream())
                         {
                             RingBufferReader r = new RingBufferReader(is);
-                            while (true)
+                            while (keepRunning)
                                 readPacket(r);
                         }
                     }
@@ -137,20 +129,59 @@ public class MxpegStreamer
     }
 
     private static final int SOI = 0xD8;
-    //    private static final int APP0 = 0xE0;
-//    private static final int COM = 0xFE;
-//    private static final int DQT = 0xDB;
-//    private static final int DHT = 0xC4;
-//    private static final int DRI = 0xDD;
+    private static final int APP0 = 0xE0;
+    private static final int COM = 0xFE;
+    private static final int DQT = 0xDB;
+    private static final int DHT = 0xC4;
+    //private static final int DRI = 0xDD;
     private static final int SOF0 = 0xC0;
     private static final int SOS = 0xDA;
     private static final int EOI = 0xD9;
+    private static final int APP11 = 0xEB;
     private static final int APP13 = 0xED;
 
     private void readPacket(RingBufferReader r) throws IOException
     {
-        boolean hasSof0 = false;
-        boolean hasSos = false;
+        //noinspection StatementWithEmptyBody
+        while (r.next() != 0xff) ;
+
+        switch (r.next())
+        {
+            case SOI:
+                readVideo(r);
+                break;
+
+            case APP13:
+                readAudioAlaw(r);
+                break;
+
+            case APP11:
+                readAudioPcm(r);
+                break;
+
+            default:
+                throw new IOException();
+        }
+    }
+
+    private int getPacket(int start, RingBufferReader r, ByteBuffer b) throws IOException
+    {
+        int end = r.pos();
+
+        b.clear();
+        r.get(b, start, end);
+        int size = buffer.position();
+        buffer.rewind();
+
+        r.cut(end);
+
+        return size;
+    }
+
+    private void readVideo(RingBufferReader r) throws IOException
+    {
+        // include SOI marker
+        int start = r.pos() - 2;
 
         while (true)
         {
@@ -158,81 +189,65 @@ public class MxpegStreamer
             while (r.next() != 0xff);
 
             int marker = r.next();
+
             if (marker == EOI)
-            {
-                // end of image
                 break;
-            }
-            else if (marker == SOI)
+
+            if (marker != SOF0
+                    && marker != SOS
+                    && marker != APP0
+                    && marker != COM
+                    && marker != DQT
+                    && marker != DHT)
             {
-                // start of image
-                packetStart = r.pos() - 2;
+                throw new IOException();
             }
-            else if (marker == APP13)
+
+            int len = (r.next() << 8) | r.next();
+            r.move(len - 2);
+
+            if (marker == SOS)
             {
-                // this is sound block
-                int len = (r.next() << 8) | r.next();
-
-                int duration = r.next() | (r.next() << 8) | (r.next() << 16) | (r.next() << 24);
-                long timestamp = 0;
-                for (int i = 0; i < 8; i++)
-                    timestamp |= ((long)r.next()) << (i * 8);
-
-                packetStart = r.pos();
-
-                r.move(len - 2 - 12);
-
-                //packetStart = packetEnd;
-                packetEnd = r.pos();
-                buffer.clear();
-                r.get(buffer, packetStart, packetEnd);
-                int size = buffer.position();
-                buffer.rewind();
-                listener.onStreamAudioPacket(buffer, size);
-            }
-            else
-            {
-                if (marker == SOF0)
-                    hasSof0 = true;
-
-                int len = (r.next() << 8) | r.next();
-                r.move(len - 2);
-
-                if (marker == SOS)
+                while (true)
                 {
-                    hasSos = true;
+                    //noinspection StatementWithEmptyBody
+                    while (r.next() != 0xff);
 
-                    while (true)
+                    marker = r.next();
+                    if (marker != 0)
                     {
-                        //noinspection StatementWithEmptyBody
-                        while (r.next() != 0xff);
-
-                        marker = r.next();
-                        if (marker != 0)
-                        {
-                            r.move(-2);
-                            break;
-                        }
+                        r.move(-2);
+                        break;
                     }
                 }
             }
         }
 
-        if (!hasSos)
-            throw new IOException();
-
-        packetStart = packetEnd;
-        packetEnd = r.pos();
-        if (hasSof0)
-        {
-            keyframeStart = packetStart;
-            r.cut(keyframeStart);
-        }
-
-        buffer.clear();
-        r.get(buffer, packetStart, packetEnd);
-        int size = buffer.position();
-        buffer.rewind();
+        int size = getPacket(start, r, buffer);
         listener.onStreamVideoPacket(buffer, size);
+    }
+
+    private void readAudioAlaw(RingBufferReader r) throws IOException
+    {
+        // this is sound block
+        int len = (r.next() << 8) | r.next();
+
+        // just skip this, we're playing ALL bytes we have and we're plating them right NOW
+        int duration = r.next() | (r.next() << 8) | (r.next() << 16) | (r.next() << 24);
+        long timestamp = 0;
+        for (int i = 0; i < 8; i++)
+            timestamp |= ((long)r.next()) << (i * 8);
+
+        int start = r.pos();
+
+        r.move(len - 2 - 12);
+
+        int size = getPacket(start, r, buffer);
+        listener.onStreamAudioPacket(buffer, size);
+    }
+
+    private void readAudioPcm(RingBufferReader r) throws IOException
+    {
+        throw new IOException();
     }
 }
