@@ -9,12 +9,12 @@ Unfortunatelly eventstream protocol is not documented and can be used only via r
 This project is in really starting stage.
 
 # Compile and run
-Since there is no UI currently in project, you should provide url to your mobotix camera
+Since there is no UI currently in project, you should provide host of your mobotix camera
 and credentials. Currently this is done via local.properties file (it is not under git control).
 You should add following lines to your local.properties file:
 
 `
-mobotix.url="http://<mobotix_ip_or_name>/control/faststream.jpg?stream=MxPEG"
+mobotix.host="<mobotix_ip_or_name>"
 mobotix.login="<login>"
 mobotix.pass="<password>"
 `

@@ -71,6 +71,7 @@ public class RingBufferReader
 
     public void cut(int pos) throws IOException
     {
+        readToPos();
         if (pos < start || pos > end)
             throw new IOException();
         start = pos;
@@ -95,5 +96,25 @@ public class RingBufferReader
         packet.put(buffer, from & MASK, size);
         if (total > size)
             packet.put(buffer, 0, total - size);
+    }
+
+    public byte[] get(int from, int to) throws IOException
+    {
+        readToPos();
+
+        if (from > to || (from - start) < 0 || (to - start) > (end - start))
+            throw new IOException();
+
+        int total = to - from;
+        int size = ((SIZE - from - 1) & MASK) + 1;
+        if (size > total)
+            size = total;
+
+        byte[] data = new byte[total];
+        System.arraycopy(buffer, from & MASK, data, 0, size);
+        if (total > size)
+            System.arraycopy(buffer, 0, data, size, total - size);
+
+        return data;
     }
 }

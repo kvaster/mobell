@@ -8,6 +8,9 @@ import android.widget.FrameLayout;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.NetworkInterface;
+import java.util.Collections;
+import java.util.List;
 
 public class MainActivity extends Activity
 {
@@ -26,7 +29,7 @@ public class MainActivity extends Activity
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
 
-        view = new GlView(new MxpegApp(BuildConfig.MOBOTIX_URL, BuildConfig.MOBOTIX_LOGIN, BuildConfig.MOBOTIX_PASS), this, displayMetrics);
+        view = new GlView(new MxpegApp(BuildConfig.MOBOTIX_HOST, BuildConfig.MOBOTIX_LOGIN, BuildConfig.MOBOTIX_PASS), this, displayMetrics);
 
         FrameLayout layout = new FrameLayout(this);
         layout.addView(view);
