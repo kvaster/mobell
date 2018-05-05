@@ -34,6 +34,20 @@ mobotix.pass="<password>"
 
 I have one at my home, but I will never buy one more.
 
+# Mobotix eventstream
+
+Mobotix has eventstream SDK, but it is pre-compiled for linux, windows and macosx
+and there is no any documentation. But it have basic docs about mxpeg frames: http://developer.mobotix.com/docs/mxpeg_frame.html
+
+Some time ago Abionix company released AxViewer application for Android. And this application is using eventstream.
+Unfortunatelly AxViewer is slow and crashes - it is not suitable to use it as intercom for door.
+But it helps me a lot - tcpdump + wireshark shows that eventstream protocol is almost the same as described in mxpeg frames.
+So, eventstream is mxpeg stream (jpeg tags) with some additional data.
+
+In docs mxpeg stream uses APP13 for audio data and encodes audio with alaw codec by default,
+but eventstream uses APP11 tag for audio and encodes audio as PCM16 16Khz.
+Also APP12 tag is used to encode events in JSON format.
+
 # FFmpeg
 This software uses code of <a href=http://ffmpeg.org>FFmpeg</a> licensed under the <a href=http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html>LGPLv2.1</a>
 and its source can be downloaded <a href=https://github.com/ffmpeg/ffmpeg>here</a>.
