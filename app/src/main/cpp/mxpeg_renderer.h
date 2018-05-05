@@ -15,6 +15,8 @@ extern "C"
 #include <pthread.h>
 #include <atomic>
 
+#include "audio_queue.h"
+
 class MxpegRenderer
 {
 public:
@@ -37,6 +39,8 @@ public:
 private:
     static const int AUDIO_ALAW = 0;
     static const int AUDIO_PCM16 = 1;
+
+    static const int QUEUE_BUFFERS = 8;
 
     GLuint program;
     GLuint yTex;
@@ -64,11 +68,8 @@ private:
     AVCodecContext* audioCodecCtx;
     AVFrame* audioWorkFrame;
 
-    uint8_t* audioPcmPlaying;
-    SLuint32 audioPcmPlayingSize;
-    uint8_t* audioPcmQueued;
-    SLuint32 audioPcmQueuedSize;
-    SLuint32 audioPcmQueuedPlaySize;
+    AudioBufferStack audioBuffers;
+    AudioBufferQueue playingAudioBuffers;
 
     // sound engine, player and buffer
     SLObjectItf audioEngineObj;
@@ -79,12 +80,8 @@ private:
     SLAndroidSimpleBufferQueueItf audioBufferQueue;
 
     int audioType;
-    volatile bool gotAudio;
-    volatile bool audioEnqueued;
-    pthread_mutex_t audioMutex;
 
-    void prepareForEnqueue(void *buf, SLuint32 size);
-    void enqueueAudio();
+    void enqueueAudio(void *buf, SLuint32 size);
 
 public:
     void playerCallback(SLAndroidSimpleBufferQueueItf bq);
