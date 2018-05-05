@@ -17,7 +17,10 @@ public class MxpegStreamer
 {
     public interface Listener
     {
-        void onStreamStart();
+        int AUDIO_ALAW = 0;
+        int AUDIO_PCM16 = 1;
+
+        void onStreamStart(int audioType);
         void onStreamStop();
         void onStreamVideoPacket(ByteBuffer packet, int size);
         void onStreamAudioPacket(ByteBuffer packet, int size);
@@ -94,7 +97,7 @@ public class MxpegStreamer
                     String encoded = Base64.encodeToString((login + ":" + password).getBytes(), Base64.NO_WRAP);
                     os.write(("Authorization: Basic " + encoded + "\r\n\r\n").getBytes());
 
-                    listener.onStreamStart();
+                    listener.onStreamStart(Listener.AUDIO_PCM16);
                     connected = true;
 
                     String[] json = {
@@ -276,7 +279,24 @@ public class MxpegStreamer
     private void readAudioPcm(RingBufferReader r) throws IOException
     {
         int len = (r.next() << 8) | r.next();
-        r.move(len - 2);
+
+        int start = r.pos() + 20;
+
+        if (r.next() != 'M')
+            throw new IOException();
+        if (r.next() != 'X')
+            throw new IOException();
+
+        int type = r.next();
+
+        r.move(len - 2 - 3);
+
+        if (type == 'A')
+        {
+            int size = getPacket(start, r, buffer);
+            listener.onStreamAudioPacket(buffer, size);
+        }
+
         r.cut(r.pos());
     }
 

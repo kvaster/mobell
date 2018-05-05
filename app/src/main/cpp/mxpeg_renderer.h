@@ -29,12 +29,15 @@ public:
 
     void canvasSizeChanged(int width, int height);
 
-    void onStreamStart();
+    void onStreamStart(int audioType);
     void onStreamStop();
     void onStreamVideoPacket(uint8_t* data, size_t size);
     void onStreamAudioPacket(uint8_t* data, size_t size);
 
 private:
+    static const int AUDIO_ALAW = 0;
+    static const int AUDIO_PCM16 = 1;
+
     GLuint program;
     GLuint yTex;
     GLuint uTex;
@@ -59,9 +62,13 @@ private:
     // FFmpeg audio
     AVCodec* audioCodec;
     AVCodecContext* audioCodecCtx;
-    AVFrame* audioFrame;
     AVFrame* audioWorkFrame;
-    AVFrame* audioEnqueueFrame;
+
+    uint8_t* audioPcmPlaying;
+    SLuint32 audioPcmPlayingSize;
+    uint8_t* audioPcmQueued;
+    SLuint32 audioPcmQueuedSize;
+    SLuint32 audioPcmQueuedPlaySize;
 
     // sound engine, player and buffer
     SLObjectItf audioEngineObj;
@@ -71,10 +78,12 @@ private:
     SLPlayItf audioPlayer;
     SLAndroidSimpleBufferQueueItf audioBufferQueue;
 
+    int audioType;
     volatile bool gotAudio;
     volatile bool audioEnqueued;
     pthread_mutex_t audioMutex;
 
+    void prepareForEnqueue(void *buf, SLuint32 size);
     void enqueueAudio();
 
 public:

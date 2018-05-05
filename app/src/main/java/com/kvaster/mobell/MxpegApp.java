@@ -97,9 +97,9 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener
     }
 
     @Override
-    public void onStreamStart()
+    public void onStreamStart(int audioType)
     {
-        MxpegNative.onStreamStart();
+        MxpegNative.onStreamStart(audioType);
     }
 
     @Override

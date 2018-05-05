@@ -48,9 +48,9 @@ void JNICALL Java_com_kvaster_mobell_MxpegNative_canvasSizeChanged
 }
 
 void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamStart
-        (JNIEnv *env, jclass c) {
+        (JNIEnv *env, jclass c, jint audioType) {
     if (renderer)
-        renderer->onStreamStart();
+        renderer->onStreamStart(audioType);
 }
 
 void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamStop

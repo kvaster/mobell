@@ -58,10 +58,10 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_draw
 /*
  * Class:     com_kvaster_mobell_MxpegNative
  * Method:    onStreamStart
- * Signature: ()V
+ * Signature: (I)V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamStart
-  (JNIEnv *, jclass);
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative

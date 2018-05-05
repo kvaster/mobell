@@ -46,85 +46,35 @@ MxpegRenderer::MxpegRenderer()
     videoWorkFrame = av_frame_alloc();
 
     // Audio
-    pthread_mutex_init(&videoMutex, nullptr);
+    pthread_mutex_init(&audioMutex, nullptr);
     gotAudio = false;
 
     audioCodec = avcodec_find_decoder(AV_CODEC_ID_PCM_ALAW);
     audioCodecCtx = nullptr;
-    audioFrame = av_frame_alloc();
     audioWorkFrame = av_frame_alloc();
-    audioEnqueueFrame = av_frame_alloc();
+
+    audioPcmPlayingSize = 16 * 1024;
+    audioPcmPlaying = (uint8_t*)malloc(audioPcmPlayingSize);
+    audioPcmQueuedSize = 16 * 1024;
+    audioPcmQueued = (uint8_t*)malloc(audioPcmQueuedSize);
 
     audioEngineObj = nullptr;
     audioEngine = nullptr;
     audioOutputMix = nullptr;
-
-    slCreateEngine(&audioEngineObj, 0, nullptr, 0, nullptr, nullptr);
-    (*audioEngineObj)->Realize(audioEngineObj, SL_BOOLEAN_FALSE);
-    (*audioEngineObj)->GetInterface(audioEngineObj, SL_IID_ENGINE, &audioEngine);
-
-    (*audioEngine)->CreateOutputMix(audioEngine, &audioOutputMix, 0, nullptr, nullptr);
-    (*audioOutputMix)->Realize(audioOutputMix, SL_BOOLEAN_FALSE);
-
-    // Audio player & sound buffer
     audioPlayerObj = nullptr;
     audioPlayer = nullptr;
-
-    SLDataLocator_AndroidSimpleBufferQueue locBufq = { SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 1 };
-
-    SLDataFormat_PCM formatPcm = {
-            SL_DATAFORMAT_PCM,
-            1,
-            SL_SAMPLINGRATE_8,
-            SL_PCMSAMPLEFORMAT_FIXED_16,
-            SL_PCMSAMPLEFORMAT_FIXED_16,
-            SL_ANDROID_SPEAKER_USE_DEFAULT,
-            SL_BYTEORDER_LITTLEENDIAN
-    };
-
-    SLDataSource audioSrc = { &locBufq, &formatPcm };
-    SLDataLocator_OutputMix locOutmix = { SL_DATALOCATOR_OUTPUTMIX, audioOutputMix };
-    SLDataSink audioSnk = { &locOutmix, NULL };
-
-    const SLInterfaceID ids[2] = { SL_IID_BUFFERQUEUE, SL_IID_VOLUME };
-    const SLboolean req[2] = { SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE };
-    (*audioEngine)->CreateAudioPlayer(audioEngine, &audioPlayerObj, &audioSrc, &audioSnk, 2, ids, req);
-    (*audioPlayerObj)->Realize(audioPlayerObj, SL_BOOLEAN_FALSE);
-    (*audioPlayerObj)->GetInterface(audioPlayerObj, SL_IID_PLAY, &audioPlayer);
-    (*audioPlayerObj)->GetInterface(audioPlayerObj, SL_IID_BUFFERQUEUE, &audioBufferQueue);
-    (*audioBufferQueue)->RegisterCallback(audioBufferQueue, slesPlayerCallback, this);
 
     resume();
 }
 
 MxpegRenderer::~MxpegRenderer()
 {
-    // audio
-    if (audioPlayerObj)
-    {
-        (*audioPlayerObj)->Destroy(audioPlayerObj);
-        audioPlayerObj = nullptr;
-        audioPlayer = nullptr;
-        audioBufferQueue = nullptr;
-    }
-
-    if (audioOutputMix)
-    {
-        (*audioOutputMix)->Destroy(audioOutputMix);
-        audioOutputMix = nullptr;
-    }
-
-    if (audioEngineObj)
-    {
-        (*audioEngineObj)->Destroy(audioEngineObj);
-        audioEngineObj = nullptr;
-        audioEngineObj = nullptr;
-    }
+    onStreamStop();
 
     avcodec_free_context(&audioCodecCtx);
-    av_frame_free(&audioFrame);
     av_frame_free(&audioWorkFrame);
-    av_frame_free(&audioEnqueueFrame);
+    free(audioPcmPlaying);
+    free(audioPcmQueued);
 
     pthread_mutex_destroy(&audioMutex);
 
@@ -270,7 +220,7 @@ void MxpegRenderer::canvasSizeChanged(int width, int height)
     glViewport(0, 0, width, height);
 }
 
-void MxpegRenderer::onStreamStart()
+void MxpegRenderer::onStreamStart(int audioType)
 {
     videoCodecCtx = avcodec_alloc_context3(videoCodec);
     avcodec_open2(videoCodecCtx, videoCodec, nullptr);
@@ -284,16 +234,78 @@ void MxpegRenderer::onStreamStart()
     gotAudio = false;
     audioEnqueued = false;
 
+    // audio engine
+    this->audioType = audioType;
+
+    slCreateEngine(&audioEngineObj, 0, nullptr, 0, nullptr, nullptr);
+    (*audioEngineObj)->Realize(audioEngineObj, SL_BOOLEAN_FALSE);
+    (*audioEngineObj)->GetInterface(audioEngineObj, SL_IID_ENGINE, &audioEngine);
+
+    (*audioEngine)->CreateOutputMix(audioEngine, &audioOutputMix, 0, nullptr, nullptr);
+    (*audioOutputMix)->Realize(audioOutputMix, SL_BOOLEAN_FALSE);
+
+    // Audio player & sound buffer
+
+    SLDataLocator_AndroidSimpleBufferQueue locBufq = { SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 1 };
+
+    SLDataFormat_PCM formatPcm = {
+            SL_DATAFORMAT_PCM,
+            1,
+            audioType == AUDIO_ALAW ? SL_SAMPLINGRATE_8 : SL_SAMPLINGRATE_16,
+            SL_PCMSAMPLEFORMAT_FIXED_16,
+            SL_PCMSAMPLEFORMAT_FIXED_16,
+            SL_ANDROID_SPEAKER_USE_DEFAULT,
+            SL_BYTEORDER_LITTLEENDIAN
+    };
+
+    SLDataSource audioSrc = { &locBufq, &formatPcm };
+    SLDataLocator_OutputMix locOutmix = { SL_DATALOCATOR_OUTPUTMIX, audioOutputMix };
+    SLDataSink audioSnk = { &locOutmix, NULL };
+
+    const SLInterfaceID ids[2] = { SL_IID_BUFFERQUEUE, SL_IID_VOLUME };
+    const SLboolean req[2] = { SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE };
+    (*audioEngine)->CreateAudioPlayer(audioEngine, &audioPlayerObj, &audioSrc, &audioSnk, 2, ids, req);
+    (*audioPlayerObj)->Realize(audioPlayerObj, SL_BOOLEAN_FALSE);
+    (*audioPlayerObj)->GetInterface(audioPlayerObj, SL_IID_PLAY, &audioPlayer);
+    (*audioPlayerObj)->GetInterface(audioPlayerObj, SL_IID_BUFFERQUEUE, &audioBufferQueue);
+    (*audioBufferQueue)->RegisterCallback(audioBufferQueue, slesPlayerCallback, this);
+
+    // and play!
     (*audioBufferQueue)->Clear(audioBufferQueue);
     (*audioPlayer)->SetPlayState(audioPlayer, SL_PLAYSTATE_PLAYING);
 }
 
 void MxpegRenderer::onStreamStop()
 {
-    (*audioPlayer)->SetPlayState(audioPlayer, SL_PLAYSTATE_STOPPED);
+    if (videoCodecCtx)
+        avcodec_free_context(&videoCodecCtx);
+    if (audioCodecCtx)
+        avcodec_free_context(&audioCodecCtx);
 
-    avcodec_free_context(&videoCodecCtx);
-    avcodec_free_context(&audioCodecCtx);
+    // audio
+    if (audioPlayer)
+        (*audioPlayer)->SetPlayState(audioPlayer, SL_PLAYSTATE_STOPPED);
+
+    if (audioPlayerObj)
+    {
+        (*audioPlayerObj)->Destroy(audioPlayerObj);
+        audioPlayerObj = nullptr;
+        audioPlayer = nullptr;
+        audioBufferQueue = nullptr;
+    }
+
+    if (audioOutputMix)
+    {
+        (*audioOutputMix)->Destroy(audioOutputMix);
+        audioOutputMix = nullptr;
+    }
+
+    if (audioEngineObj)
+    {
+        (*audioEngineObj)->Destroy(audioEngineObj);
+        audioEngineObj = nullptr;
+        audioEngineObj = nullptr;
+    }
 }
 
 void MxpegRenderer::onStreamVideoPacket(uint8_t* data, size_t size)
@@ -403,46 +415,68 @@ void MxpegRenderer::updateTextures()
 
 void MxpegRenderer::onStreamAudioPacket(uint8_t *data, size_t size)
 {
-    AVPacket pkt;
-    av_init_packet(&pkt);
-
-    pkt.data = data;
-    pkt.size = size;
-
-    avcodec_send_packet(audioCodecCtx, &pkt);
-
-    int ret = 0;
-    while (ret >= 0)
+    if (audioType == AUDIO_ALAW)
     {
-        ret = avcodec_receive_frame(audioCodecCtx, audioWorkFrame);
+        AVPacket pkt;
+        av_init_packet(&pkt);
 
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-            break;
+        pkt.data = data;
+        pkt.size = size;
 
-        if (ret < 0) // error
-            break;
+        avcodec_send_packet(audioCodecCtx, &pkt);
 
-        pthread_mutex_lock(&audioMutex);
+        int ret = 0;
+        while (ret >= 0)
+        {
+            ret = avcodec_receive_frame(audioCodecCtx, audioWorkFrame);
 
-        av_frame_unref(audioFrame);
-        av_frame_ref(audioFrame, audioWorkFrame);
+            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+                break;
 
-        if (audioEnqueued)
-            gotAudio = true;
-        else
-            enqueueAudio();
+            if (ret < 0) // error
+                break;
 
-        pthread_mutex_unlock(&audioMutex);
+            prepareForEnqueue(audioWorkFrame->data[0], (SLuint32) audioWorkFrame->nb_samples * 2);
+        }
     }
+    else
+    {
+        prepareForEnqueue(data, (SLuint32) size);
+    }
+}
+
+void MxpegRenderer::prepareForEnqueue(void *buf, SLuint32 size)
+{
+    pthread_mutex_lock(&audioMutex);
+
+    if (size > audioPcmQueuedSize)
+    {
+        audioPcmQueued = (uint8_t*)realloc(audioPcmQueued, size);
+        audioPcmQueuedSize = size;
+    }
+
+    memcpy(audioPcmQueued, buf, size);
+    audioPcmQueuedPlaySize = size;
+
+    if (audioEnqueued)
+        gotAudio = true;
+    else
+        enqueueAudio();
+
+    pthread_mutex_unlock(&audioMutex);
 }
 
 void MxpegRenderer::enqueueAudio()
 {
-    av_frame_unref(audioEnqueueFrame);
-    av_frame_ref(audioEnqueueFrame, audioFrame);
+    (*audioBufferQueue)->Enqueue(audioBufferQueue, audioPcmQueued, audioPcmQueuedPlaySize);
 
-    //(*audioBufferQueue)->Enqueue(audioBufferQueue, audioEnqueueFrame->data[0], (SLuint32)audioEnqueueFrame->linesize[0]);
-    (*audioBufferQueue)->Enqueue(audioBufferQueue, audioEnqueueFrame->data[0], (SLuint32)audioEnqueueFrame->nb_samples * 2);
+    // swap buffers
+    uint8_t* q = audioPcmQueued;
+    SLuint32 s = audioPcmQueuedSize;
+    audioPcmQueued = audioPcmPlaying;
+    audioPcmQueuedSize = audioPcmPlayingSize;
+    audioPcmPlaying = q;
+    audioPcmPlayingSize = s;
 
     gotAudio = false;
     audioEnqueued = true;
