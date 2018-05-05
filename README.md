@@ -52,13 +52,13 @@ Also APP12 tag is used to encode events in JSON format.
 
 There two types of messages in APP11 tag:
 
-``
+````
 ff eb 00 14 4d 58 53 00  02 01 00 00 80 3e 00 00   ....MXS. .....>..
 20 50 31 36 01 01
 
 ff eb 06 56 4d 58 41 00  02 01 00 00 1e a0 b0 87   ...VMXA. ........
 3f 6b 05 00 50 c3 00 00
-``
+````
 
 It seems that first message is audio type / features and second one - audio itself.
 
@@ -80,7 +80,7 @@ Events and data from client are sent in different ways. It seems that all events
 But audio data is sent in the same stream using same tags as in APP11. I've found same two type of tags: MXS and MXA.
 But now it seems there is 'sound on' and 'sound off' MXS tag:
 
-``
+````
 ff eb 00 14 4d 58 53 00  01 81 27 c1 80 3e 00 00   ....MXS. ..'..>..
 20 50 31 36 01 01
 
@@ -89,7 +89,7 @@ ff eb 00 14 4d 58 53 00  01 01 00 00 80 3e 00 00   ....MXS. .....>..
 
 ff eb 00 56 4d 58 41 00  01 61 62 69 6f 6e 69 78   ...VMXA. .abionix
 5f 61 78 76 69 65 77 65
-``
+````
 
 Also AxViewer fills some data fields with garbage (audio data timestamp, duration).
 
