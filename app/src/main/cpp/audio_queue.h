@@ -16,7 +16,6 @@ public:
         this->size = 0;
 
         next = nullptr;
-        prev = nullptr;
     }
 
     ~AudioBuffer()
@@ -41,7 +40,6 @@ public:
     size_t size; // audio data size
 
     AudioBuffer* next;
-    AudioBuffer* prev;
 };
 
 class AudioBufferStack
@@ -125,7 +123,6 @@ public:
         if (tail)
         {
             tail->next = b;
-            b->prev = tail;
             tail = b;
         }
         else
@@ -146,9 +143,7 @@ public:
         if (b)
         {
             head = b->next;
-            if (head)
-                head->prev = nullptr;
-            else
+            if (!head)
                 tail = nullptr;
 
             b->next = nullptr;
