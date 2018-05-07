@@ -277,6 +277,8 @@ void MxpegRenderer::onStreamStop()
     // audio
     if (audioPlayer)
         (*audioPlayer)->SetPlayState(audioPlayer, SL_PLAYSTATE_STOPPED);
+    if (audioBufferQueue)
+        (*audioBufferQueue)->Clear(audioBufferQueue);
 
     AudioBuffer* b;
     while ((b = playingAudioBuffers.get()) != nullptr)
