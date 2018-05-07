@@ -8,10 +8,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
 import java.net.Socket;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class MxpegStreamer
 {
@@ -31,12 +34,15 @@ public class MxpegStreamer
     private final String password;
     private final Listener listener;
 
+    private final BlockingQueue<byte[]> packets = new LinkedBlockingQueue<>();
+    private final byte[] END_MARKER = new byte[0];
+
     private volatile boolean keepRunning;
     private Thread thread;
 
     private final ByteBuffer buffer = ByteBuffer.allocateDirect(1024 * 1024 * 2);
 
-    public MxpegStreamer(String host, String login, String password, Listener listener) throws MalformedURLException
+    public MxpegStreamer(String host, String login, String password, Listener listener)
     {
         this.host = host;
         this.login = login;
@@ -75,6 +81,16 @@ public class MxpegStreamer
         }
     }
 
+    private void write(byte[] data)
+    {
+        packets.add(data);
+    }
+
+    private void write(String data)
+    {
+        write(data.getBytes());
+    }
+
     private void run()
     {
         while (keepRunning)
@@ -84,18 +100,52 @@ public class MxpegStreamer
                 boolean connected = false;
 
                 InetAddress ia = InetAddress.getByName(host);
-                Socket socket = new Socket(ia, 80);
+                Socket socket = new Socket();
                 socket.setSoTimeout(5000);
                 socket.setReceiveBufferSize(1024 * 1024 * 8);
                 socket.setTcpNoDelay(true);
+                socket.connect(new InetSocketAddress(ia, 80), 1000);
+
+                Thread wt = null;
 
                 try (InputStream is = socket.getInputStream(); OutputStream os = socket.getOutputStream())
                 {
-                    os.write("POST /control/eventstream.jpg HTTP/1.1\r\n".getBytes());
-                    //os.write("POST /control/faststream.jpg?stream=MxPEG HTTP/1.1\r\n".getBytes());
-                    os.write(("Host: " + ia.getHostAddress() + "\r\n").getBytes());
-                    String encoded = Base64.encodeToString((login + ":" + password).getBytes(), Base64.NO_WRAP);
-                    os.write(("Authorization: Basic " + encoded + "\r\n\r\n").getBytes());
+                    packets.clear();
+
+                    wt = new Thread(() -> {
+                        try
+                        {
+                            while (keepRunning)
+                            {
+                                byte[] data = packets.take();
+
+                                if (data == END_MARKER)
+                                    break;
+
+                                os.write(data);
+                            }
+                        }
+                        catch (IOException | InterruptedException e)
+                        {
+                            // write error
+                        }
+
+                        try
+                        {
+                            socket.close();
+                            packets.clear();
+                        }
+                        catch (IOException e)
+                        {
+                            // do nothing
+                        }
+                    });
+
+                    wt.start();
+
+                    write(String.format("POST /control/eventstream.jpg HTTP/1.1\r\nHost: %s\r\nAuthorization: Basic %s\r\n\r\n",
+                            ia.getHostAddress(),
+                            Base64.encodeToString((login + ":" + password).getBytes(), Base64.NO_WRAP)));
 
                     listener.onStreamStart(Listener.AUDIO_PCM16);
                     connected = true;
@@ -121,8 +171,8 @@ public class MxpegStreamer
 
                     for (String s : json)
                     {
-                        os.write(s.getBytes());
-                        os.write(new byte[]{0x0a, 0x00});
+                        write(s);
+                        write(new byte[]{0x0a, 0x00});
                     }
 
                     RingBufferReader r = new RingBufferReader(is);
@@ -135,6 +185,10 @@ public class MxpegStreamer
                         listener.onStreamStop();
 
                     socket.close();
+
+                    packets.add(END_MARKER);
+                    if (wt != null)
+                        wt.join();
                 }
             }
             catch (Exception e)

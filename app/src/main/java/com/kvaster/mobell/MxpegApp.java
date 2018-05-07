@@ -1,6 +1,5 @@
 package com.kvaster.mobell;
 
-import java.net.MalformedURLException;
 import java.nio.ByteBuffer;
 
 public class MxpegApp implements GlApp, MxpegStreamer.Listener
@@ -10,14 +9,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener
 
     public MxpegApp(String url, String login, String password)
     {
-        try
-        {
-            streamer = new MxpegStreamer(url, login, password, this);
-        }
-        catch (MalformedURLException e)
-        {
-            throw new RuntimeException(e);
-        }
+        streamer = new MxpegStreamer(url, login, password, this);
     }
 
     @Override
