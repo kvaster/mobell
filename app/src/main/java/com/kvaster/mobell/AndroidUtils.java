@@ -38,4 +38,15 @@ public class AndroidUtils
 
         return "02:00:00:00:00:00";
     }
+
+    public static byte[] fromHex(String hex)
+    {
+        int sz = hex.length() / 2;
+        byte[] data = new byte[sz];
+
+        for (int i = 0; i < sz; i++)
+            data[i] = (byte)((Character.digit(hex.charAt(i * 2), 16) << 4) | Character.digit(hex.charAt(i * 2 + 1), 16));
+
+        return data;
+    }
 }

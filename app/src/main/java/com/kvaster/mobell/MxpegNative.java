@@ -20,6 +20,9 @@ public class MxpegNative
 
     public static native void canvasSizeChanged(int width, int height);
 
+    public static native void startRecord(AudioRecorderListener listener);
+    public static native void stopRecord();
+
     static
     {
         System.loadLibrary("avutil");

@@ -8,7 +8,7 @@ set_target_properties(lib_avcodec PROPERTIES IMPORTED_LOCATION ${ffmpeg}/lib/${A
 add_library(lib_avutil SHARED IMPORTED)
 set_target_properties(lib_avutil PROPERTIES IMPORTED_LOCATION ${ffmpeg}/lib/${ANDROID_ABI}/libavutil.so)
 
-set(SOURCE_FILES src/main/cpp/mxpeg_native.cpp src/main/cpp/mxpeg_renderer.cpp)
+set(SOURCE_FILES src/main/cpp/mxpeg_native.cpp src/main/cpp/mxpeg_renderer.cpp src/main/cpp/audio_recorder.cpp)
 
 add_library(mobell SHARED ${SOURCE_FILES})
 

@@ -1,20 +1,19 @@
 package com.kvaster.mobell;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.util.DisplayMetrics;
 import android.widget.FrameLayout;
-
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.NetworkInterface;
-import java.util.Collections;
-import java.util.List;
 
 public class MainActivity extends Activity
 {
     private GlView view;
+    private MxpegApp app;
 
     public MainActivity()
     {
@@ -29,7 +28,8 @@ public class MainActivity extends Activity
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
 
-        view = new GlView(new MxpegApp(BuildConfig.MOBOTIX_HOST, BuildConfig.MOBOTIX_LOGIN, BuildConfig.MOBOTIX_PASS), this, displayMetrics);
+        app = new MxpegApp(BuildConfig.MOBOTIX_HOST, BuildConfig.MOBOTIX_LOGIN, BuildConfig.MOBOTIX_PASS);
+        view = new GlView(app, this, displayMetrics);
 
         FrameLayout layout = new FrameLayout(this);
         layout.addView(view);
@@ -59,6 +59,9 @@ public class MainActivity extends Activity
         try
         {
             super.onStart();
+
+            if (checkPermissions())
+                app.allowRecording();
 
             view.resume();
         }
@@ -122,5 +125,40 @@ public class MainActivity extends Activity
     private void onCatch(Throwable t)
     {
         // TODO отработать ошибку
+    }
+
+    private boolean checkPermissions()
+    {
+        String[] permissions = {
+                Manifest.permission.INTERNET,
+                Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.MODIFY_AUDIO_SETTINGS
+        };
+
+        boolean req = false;
+
+        for (String p : permissions)
+        {
+            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED)
+            {
+                req = true;
+                break;
+            }
+        }
+
+
+        if (req)
+        {
+            ActivityCompat.requestPermissions(this, permissions, 0);
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String permissions[], @NonNull int[] grantResults)
+    {
+        app.allowRecording();
     }
 }

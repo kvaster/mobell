@@ -9,14 +9,12 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.MalformedURLException;
 import java.net.Socket;
-import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class MxpegStreamer
+public class MxpegStreamer implements AudioRecorderListener
 {
     public interface Listener
     {
@@ -35,12 +33,18 @@ public class MxpegStreamer
     private final Listener listener;
 
     private final BlockingQueue<byte[]> packets = new LinkedBlockingQueue<>();
-    private final byte[] END_MARKER = new byte[0];
+    private static final byte[] END_MARKER = new byte[0];
+
+    private static final byte[] AUDIO_START = AndroidUtils.fromHex("ffeb00144d585300018127c1803e0000205031360101");
+    private static final byte[] AUDIO_STOP = AndroidUtils.fromHex("ffeb00144d58530001010000803e0000205031360101");
+    private static final byte[] AUDIO_DATA = AndroidUtils.fromHex("ffeb00004d584100016162696f6e69785f61787669657765");
 
     private volatile boolean keepRunning;
     private Thread thread;
 
     private final ByteBuffer buffer = ByteBuffer.allocateDirect(1024 * 1024 * 2);
+
+    private boolean recordingEnabled;
 
     public MxpegStreamer(String host, String login, String password, Listener listener)
     {
@@ -49,6 +53,11 @@ public class MxpegStreamer
         this.password = password;
 
         this.listener = listener;
+    }
+
+    public void enableRecording()
+    {
+        recordingEnabled = true;
     }
 
     public void start()
@@ -175,12 +184,25 @@ public class MxpegStreamer
                         write(new byte[]{0x0a, 0x00});
                     }
 
+                    boolean recording = false;
+
                     RingBufferReader r = new RingBufferReader(is);
                     while (keepRunning)
+                    {
+                        if (!recording && recordingEnabled)
+                        {
+                            recording = true;
+                            write(AUDIO_START);
+                            MxpegNative.startRecord(this);
+                        }
+
                         readPacket(r);
+                    }
                 }
                 finally
                 {
+                    MxpegNative.stopRecord();
+
                     if (connected)
                         listener.onStreamStop();
 
@@ -374,5 +396,19 @@ public class MxpegStreamer
         {
             throw new IOException(e);
         }
+    }
+
+    @Override
+    public void onAudioData(byte[] data)
+    {
+        byte[] packet = new byte[AUDIO_DATA.length + data.length];
+        System.arraycopy(AUDIO_DATA, 0, packet, 0, AUDIO_DATA.length);
+        System.arraycopy(data, 0, packet, AUDIO_DATA.length, data.length);
+
+        int len = packet.length - 2;
+        packet[2] = (byte)(len >> 8);
+        packet[3] = (byte)len;
+
+        write(packet);
     }
 }

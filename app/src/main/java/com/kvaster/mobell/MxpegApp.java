@@ -12,6 +12,11 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener
         streamer = new MxpegStreamer(url, login, password, this);
     }
 
+    public void allowRecording()
+    {
+        streamer.enableRecording();
+    }
+
     @Override
     public void start()
     {
