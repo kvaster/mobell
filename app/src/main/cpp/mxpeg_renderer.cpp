@@ -216,6 +216,10 @@ void MxpegRenderer::canvasSizeChanged(int width, int height)
 
 void MxpegRenderer::onStreamStart(int audioType)
 {
+    pthread_mutex_lock(&videoMutex);
+    width = height = 0;
+    pthread_mutex_unlock(&videoMutex);
+
     videoCodecCtx = avcodec_alloc_context3(videoCodec);
     avcodec_open2(videoCodecCtx, videoCodec, nullptr);
     gotVideo = false;
@@ -269,6 +273,10 @@ void MxpegRenderer::onStreamStart(int audioType)
 
 void MxpegRenderer::onStreamStop()
 {
+    pthread_mutex_lock(&videoMutex);
+    width = height = 0;
+    pthread_mutex_unlock(&videoMutex);
+    
     if (videoCodecCtx)
         avcodec_free_context(&videoCodecCtx);
     if (audioCodecCtx)
