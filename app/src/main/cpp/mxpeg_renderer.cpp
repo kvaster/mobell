@@ -276,7 +276,7 @@ void MxpegRenderer::onStreamStop()
     pthread_mutex_lock(&videoMutex);
     width = height = 0;
     pthread_mutex_unlock(&videoMutex);
-    
+
     if (videoCodecCtx)
         avcodec_free_context(&videoCodecCtx);
     if (audioCodecCtx)

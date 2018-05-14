@@ -2,19 +2,39 @@ package com.kvaster.mobell;
 
 import java.nio.ByteBuffer;
 
-public class MxpegApp implements GlApp, MxpegStreamer.Listener
+public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderListener
 {
     private boolean needResume;
     private final MxpegStreamer streamer;
+
+    private boolean recordingEnabled;
+    private boolean started;
 
     public MxpegApp(String url, String login, String password)
     {
         streamer = new MxpegStreamer(url, login, password, this);
     }
 
-    public void allowRecording()
+    public synchronized void allowRecording()
     {
-        streamer.enableRecording();
+        if (!recordingEnabled)
+        {
+            recordingEnabled = true;
+            if (started)
+                startRecording();
+        }
+    }
+
+    private void startRecording()
+    {
+        streamer.startAudio();
+        MxpegNative.startRecord(this);
+    }
+
+    private void stopRecording()
+    {
+        MxpegNative.stopRecord();
+        streamer.stopAudio();
     }
 
     @Override
@@ -94,14 +114,21 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener
     }
 
     @Override
-    public void onStreamStart(int audioType)
+    public synchronized void onStreamStart(int audioType)
     {
         MxpegNative.onStreamStart(audioType);
+        streamer.startVideo();
+
+        if (recordingEnabled)
+            startRecording();
     }
 
     @Override
-    public void onStreamStop()
+    public synchronized void onStreamStop()
     {
+        if (recordingEnabled)
+            stopRecording();
+
         MxpegNative.onStreamStop();
     }
 
@@ -115,5 +142,11 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener
     public void onStreamAudioPacket(ByteBuffer packet, int size)
     {
         MxpegNative.onStreamAudioPacket(packet, size);
+    }
+
+    @Override
+    public void onAudioData(byte[] data)
+    {
+        streamer.sendAudio(data);
     }
 }

@@ -11,10 +11,11 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class MxpegStreamer implements AudioRecorderListener
+public class MxpegStreamer
 {
     public interface Listener
     {
@@ -42,22 +43,22 @@ public class MxpegStreamer implements AudioRecorderListener
     private volatile boolean keepRunning;
     private Thread thread;
 
-    private final ByteBuffer buffer = ByteBuffer.allocateDirect(1024 * 1024 * 2);
-
-    private boolean recordingEnabled;
+    private final ByteBuffer buffer;
 
     public MxpegStreamer(String host, String login, String password, Listener listener)
     {
+        this(host, login, password, listener, 1024 * 1024 * 2);
+    }
+
+    public MxpegStreamer(String host, String login, String password, Listener listener, int bufferSize)
+    {
+        buffer = ByteBuffer.allocateDirect(bufferSize);
+
         this.host = host;
         this.login = login;
         this.password = password;
 
         this.listener = listener;
-    }
-
-    public void enableRecording()
-    {
-        recordingEnabled = true;
     }
 
     public void start()
@@ -159,45 +160,9 @@ public class MxpegStreamer implements AudioRecorderListener
                     listener.onStreamStart(Listener.AUDIO_PCM16);
                     connected = true;
 
-                    String[] json = {
-                            //"{\"id\":11,\"method\":\"size\",\"params\":[{\"h\":-1,\"w\":-1}]}",
-                            "{\"id\":12,\"method\":\"mode\",\"params\":[\"mxpeg\"]}",
-                            "{\"id\":13,\"method\":\"live\",\"params\":[false]}",
-                            //"{\"id\":14,\"method\":\"subscription\",\"params\":[\"alarmupdate\",true,\"\"]}",
-                            //"{\"id\":15,\"method\":\"list_addressees\"}",
-                            //"{\"id\":16,\"method\":\"reference_image\",\"params\":[{\"command\":\"get\"}]}",
-                            //"{\"id\":17,\"method\":\"preview_live\",\"params\":[0,0]}",
-                            "{\"id\":18,\"method\":\"subscription\",\"params\":[\"door\",true,\"\"]}",
-                            //"{\"id\":19,\"method\":\"subscription\",\"params\":[\"elight\",true,\"\"]}",
-                            //"{\"id\":20,\"method\":\"subscription\",\"params\":[\"nearest_events\",true,\"\"]}",
-                            //"{\"id\":21,\"method\":\"camerafeatures\"}",
-                            //"{\"id\":22,\"method\":\"recinfo\"}",
-                            //"{\"id\":23,\"method\":\"kurator\",\"params\":[{\"path\":\"productinfo\",\"read\":true}]}",
-                            //"{\"id\":24,\"method\":\"rangeinfo\"}",
-                            "{\"id\":25,\"method\":\"audiooutput\",\"params\":[\"pcm16\"]}",
-                            //"{\"id\":26,\"method\":\"add_device\",\"params\":[\"00:00:00:00:00:00\",[32800],\"MoBell+00:00:00:00:00:00\"]}",
-                    };
-
-                    for (String s : json)
-                    {
-                        write(s);
-                        write(new byte[]{0x0a, 0x00});
-                    }
-
-                    boolean recording = false;
-
                     RingBufferReader r = new RingBufferReader(is);
                     while (keepRunning)
-                    {
-                        if (!recording && recordingEnabled)
-                        {
-                            recording = true;
-                            write(AUDIO_START);
-                            MxpegNative.startRecord(this);
-                        }
-
                         readPacket(r);
-                    }
                 }
                 finally
                 {
@@ -398,8 +363,17 @@ public class MxpegStreamer implements AudioRecorderListener
         }
     }
 
-    @Override
-    public void onAudioData(byte[] data)
+    public void startAudio()
+    {
+        write(AUDIO_START);
+    }
+
+    public void stopAudio()
+    {
+        write(AUDIO_STOP);
+    }
+
+    public void sendAudio(byte[] data)
     {
         byte[] packet = new byte[AUDIO_DATA.length + data.length];
         System.arraycopy(AUDIO_DATA, 0, packet, 0, AUDIO_DATA.length);
@@ -410,5 +384,40 @@ public class MxpegStreamer implements AudioRecorderListener
         packet[3] = (byte)len;
 
         write(packet);
+    }
+
+    /*
+        Some commands:
+        //"{\"id\":11,\"method\":\"size\",\"params\":[{\"h\":-1,\"w\":-1}]}",
+        "{\"id\":12,\"method\":\"mode\",\"params\":[\"mxpeg\"]}",
+        "{\"id\":13,\"method\":\"live\",\"params\":[false]}",
+        //"{\"id\":14,\"method\":\"subscription\",\"params\":[\"alarmupdate\",true,\"\"]}",
+        //"{\"id\":15,\"method\":\"list_addressees\"}",
+        //"{\"id\":16,\"method\":\"reference_image\",\"params\":[{\"command\":\"get\"}]}",
+        //"{\"id\":17,\"method\":\"preview_live\",\"params\":[0,0]}",
+        "{\"id\":18,\"method\":\"subscription\",\"params\":[\"door\",true,\"\"]}",
+        //"{\"id\":19,\"method\":\"subscription\",\"params\":[\"elight\",true,\"\"]}",
+        //"{\"id\":20,\"method\":\"subscription\",\"params\":[\"nearest_events\",true,\"\"]}",
+        //"{\"id\":21,\"method\":\"camerafeatures\"}",
+        //"{\"id\":22,\"method\":\"recinfo\"}",
+        //"{\"id\":23,\"method\":\"kurator\",\"params\":[{\"path\":\"productinfo\",\"read\":true}]}",
+        //"{\"id\":24,\"method\":\"rangeinfo\"}",
+        "{\"id\":25,\"method\":\"audiooutput\",\"params\":[\"pcm16\"]}",
+        //"{\"id\":26,\"method\":\"add_device\",\"params\":[\"00:00:00:00:00:00\",[32800],\"MoBell+00:00:00:00:00:00\"]}",
+     */
+    public void sendCmd(String cmd)
+    {
+        byte[] data = cmd.getBytes();
+        data = Arrays.copyOf(data, data.length + 2);
+        data[data.length - 2] = 0x0a;
+        data[data.length - 1] = 0x00;
+        write(data);
+    }
+
+    public void startVideo()
+    {
+        sendCmd("{\"id\":12,\"method\":\"mode\",\"params\":[\"mxpeg\"]}");
+        sendCmd("{\"id\":13,\"method\":\"live\",\"params\":[false]}");
+        sendCmd("{\"id\":25,\"method\":\"audiooutput\",\"params\":[\"pcm16\"]}");
     }
 }
