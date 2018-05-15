@@ -1,5 +1,7 @@
 package com.kvaster.mobell;
 
+import org.json.JSONObject;
+
 import java.nio.ByteBuffer;
 
 public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderListener
@@ -142,6 +144,12 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     public void onStreamAudioPacket(ByteBuffer packet, int size)
     {
         MxpegNative.onStreamAudioPacket(packet, size);
+    }
+
+    @Override
+    public void onMobotixEvent(JSONObject event)
+    {
+        // do nothing by default
     }
 
     @Override

@@ -2,8 +2,14 @@ package com.kvaster.mobell;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.Service;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -14,6 +20,21 @@ public class MainActivity extends Activity
 {
     private GlView view;
     private MxpegApp app;
+
+    private ServiceConnection connection = new ServiceConnection()
+    {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service)
+        {
+            MobotixEventService s = ((MobotixEventService.LocalBinder)service).getService();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name)
+        {
+            // do nothing
+        }
+    };
 
     public MainActivity()
     {
@@ -34,6 +55,10 @@ public class MainActivity extends Activity
         FrameLayout layout = new FrameLayout(this);
         layout.addView(view);
         setContentView(layout);
+
+        Intent service = new Intent(this, MobotixEventService.class);
+        startService(service);
+        bindService(service, connection, BIND_AUTO_CREATE);
     }
 
     @Override
@@ -43,9 +68,9 @@ public class MainActivity extends Activity
         {
             view.stop();
 
-            super.onDestroy();
+            unbindService(connection);
 
-            System.exit(0); // Very good hack. Need this to be sure application is killed completely.
+            super.onDestroy();
         }
         catch (Throwable t)
         {
@@ -130,9 +155,7 @@ public class MainActivity extends Activity
     private boolean checkPermissions()
     {
         String[] permissions = {
-                Manifest.permission.INTERNET,
                 Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.MODIFY_AUDIO_SETTINGS
         };
 
         boolean req = false;

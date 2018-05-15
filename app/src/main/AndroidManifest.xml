@@ -1,9 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.kvaster.mobell">
 
+    <!-- normal permissions -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- dangerous permissions -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
 
     <application
             android:allowBackup="true"
@@ -12,6 +18,7 @@
             android:roundIcon="@mipmap/ic_launcher_round"
             android:supportsRtl="true"
             android:theme="@style/AppTheme">
+
         <activity android:name=".MainActivity"
                   android:configChanges="keyboardHidden|orientation|screenSize">
             <intent-filter>
@@ -20,6 +27,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <service android:name=".MobotixEventService" android:exported="false"/>
+
+        <receiver android:name=".OnBootReceiver"/>
+
     </application>
 
 </manifest>

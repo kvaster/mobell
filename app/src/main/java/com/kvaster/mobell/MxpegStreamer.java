@@ -14,6 +14,11 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static com.kvaster.mobell.JsonUtils.ja;
+import static com.kvaster.mobell.JsonUtils.je;
+import static com.kvaster.mobell.JsonUtils.jo;
 
 public class MxpegStreamer
 {
@@ -26,6 +31,7 @@ public class MxpegStreamer
         void onStreamStop();
         void onStreamVideoPacket(ByteBuffer packet, int size);
         void onStreamAudioPacket(ByteBuffer packet, int size);
+        void onMobotixEvent(JSONObject event);
     }
 
     private final String host;
@@ -34,6 +40,8 @@ public class MxpegStreamer
     private final Listener listener;
 
     private final BlockingQueue<byte[]> packets = new LinkedBlockingQueue<>();
+    private final AtomicInteger idGenerator = new AtomicInteger(10);
+
     private static final byte[] END_MARKER = new byte[0];
 
     private static final byte[] AUDIO_START = AndroidUtils.fromHex("ffeb00144d585300018127c1803e0000205031360101");
@@ -61,7 +69,7 @@ public class MxpegStreamer
         this.listener = listener;
     }
 
-    public void start()
+    public synchronized void start()
     {
         if (thread == null)
         {
@@ -354,8 +362,7 @@ public class MxpegStreamer
 
         try
         {
-            JSONObject json = new JSONObject(new String(jsonData));
-            // TODO
+            listener.onMobotixEvent(new JSONObject(new String(jsonData)));
         }
         catch (JSONException e)
         {
@@ -414,10 +421,15 @@ public class MxpegStreamer
         write(data);
     }
 
+    public void sendCmd(String method, Object params)
+    {
+        sendCmd(jo(je("id", idGenerator.getAndIncrement()), je("method", method), je("params", params)).toString());
+    }
+
     public void startVideo()
     {
-        sendCmd("{\"id\":12,\"method\":\"mode\",\"params\":[\"mxpeg\"]}");
-        sendCmd("{\"id\":13,\"method\":\"live\",\"params\":[false]}");
-        sendCmd("{\"id\":25,\"method\":\"audiooutput\",\"params\":[\"pcm16\"]}");
+        sendCmd("mode", ja("mxpeg"));
+        sendCmd("live", ja("false"));
+        sendCmd("audiooutput", ja("pcm16"));
     }
 }
