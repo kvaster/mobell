@@ -12,9 +12,13 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private boolean recordingEnabled;
     private boolean started;
 
-    public MxpegApp(String url, String login, String password)
+    public MxpegApp(String host, int port, String login, String password)
     {
-        streamer = new MxpegStreamer(url, login, password, this);
+        streamer = new MxpegStreamer(host, port, login, password, this,
+                1024 * 1024 * 2, // 2mb packets - should be really enough even for 6mpx data
+                1024 * 1024 * 8, // 8mb ring buffer to hold large amount of data
+                1000 // on audio/video stream huge delays are really bad -> wait only 1s
+        );
     }
 
     public synchronized void allowRecording()

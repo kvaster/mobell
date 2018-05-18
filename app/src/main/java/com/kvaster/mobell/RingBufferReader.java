@@ -7,10 +7,10 @@ import java.nio.ByteBuffer;
 
 public class RingBufferReader
 {
-    private static final int SIZE = 1024 * 1024 * 8; // 8mb ring buffer for incoming packets
-    private static final int MASK = SIZE - 1; // ring buffer size is 2^n -> we can use mask for positioning
+    private final int ringSize;
+    private final int ringMask;
 
-    private byte[] buffer = new byte[SIZE];
+    private byte[] buffer;
 
     private int start = 0;
     private int end = 0;
@@ -18,36 +18,49 @@ public class RingBufferReader
 
     private final InputStream is;
 
-    public RingBufferReader(InputStream is)
+    /**
+     * @param is input stream
+     * @param bufferSize minimal ring buffer size, real size will be closest 2^n size
+     */
+    public RingBufferReader(InputStream is, int bufferSize)
     {
         this.is = is;
+
+        int s = 1;
+        while (s < bufferSize)
+            s <<= 1;
+        ringSize = s;
+        ringMask = ringSize - 1;
+
+        buffer = new byte[ringSize];
     }
 
     private void read() throws IOException
     {
-        if ((end - start) >= SIZE)
+        if ((end - start) >= ringSize)
             throw new IOException(); // ring buffer overflow
 
-        int size = Math.min(((SIZE - end - 1) & MASK) + 1,
-                ((start - end - 1) & MASK) + 1);
+        int size = Math.min(((ringSize - end - 1) & ringMask) + 1,
+                ((start - end - 1) & ringMask) + 1);
 
-        size = is.read(buffer, end & MASK, size);
+        size = is.read(buffer, end & ringMask, size);
+
         if (size < 0)
             throw new EOFException();
 
         end += size;
     }
 
-    private void readToPos() throws IOException
+    private void readToPos(int p) throws IOException
     {
-        while ((pos - start) >= (end - start))
+        while ((p - start) > (end - start))
             read();
     }
 
     public int get() throws IOException
     {
-        readToPos();
-        return buffer[pos & MASK] & 0xff;
+        readToPos(pos + 1);
+        return buffer[pos & ringMask] & 0xff;
     }
 
     public int next() throws IOException
@@ -71,7 +84,7 @@ public class RingBufferReader
 
     public void cut(int pos) throws IOException
     {
-        readToPos();
+        readToPos(pos);
         if (pos < start || pos > end)
             throw new IOException();
         start = pos;
@@ -84,34 +97,34 @@ public class RingBufferReader
 
     public void get(ByteBuffer packet, int from, int to) throws IOException
     {
-        readToPos();
+        readToPos(to);
 
         if (from > to || (from - start) < 0 || (to - start) > (end - start))
             throw new IOException();
 
         int total = to - from;
-        int size = ((SIZE - from - 1) & MASK) + 1;
+        int size = ((ringSize - from - 1) & ringMask) + 1;
         if (size > total)
             size = total;
-        packet.put(buffer, from & MASK, size);
+        packet.put(buffer, from & ringMask, size);
         if (total > size)
             packet.put(buffer, 0, total - size);
     }
 
     public byte[] get(int from, int to) throws IOException
     {
-        readToPos();
+        readToPos(to);
 
         if (from > to || (from - start) < 0 || (to - start) > (end - start))
             throw new IOException();
 
         int total = to - from;
-        int size = ((SIZE - from - 1) & MASK) + 1;
+        int size = ((ringSize - from - 1) & ringMask) + 1;
         if (size > total)
             size = total;
 
         byte[] data = new byte[total];
-        System.arraycopy(buffer, from & MASK, data, 0, size);
+        System.arraycopy(buffer, from & ringMask, data, 0, size);
         if (total > size)
             System.arraycopy(buffer, 0, data, size, total - size);
 
