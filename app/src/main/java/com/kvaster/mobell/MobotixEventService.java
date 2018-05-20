@@ -22,20 +22,25 @@ import org.json.JSONObject;
 
 import java.nio.ByteBuffer;
 import java.util.Date;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import static com.kvaster.mobell.AndroidUtils.TAG;
+import static com.kvaster.mobell.JsonUtils.ja;
 
 public class MobotixEventService extends Service implements MxpegStreamer.Listener
 {
     private static final long PING_MIN_DELAY = TimeUnit.SECONDS.toMillis(120);
     private static final long READ_TIMEOUT = PING_MIN_DELAY + TimeUnit.SECONDS.toMillis(120);
+    private static final long RECONNECT_MIN_DELAY = TimeUnit.SECONDS.toMillis(1);
+    private static final long RECONNECT_MAX_DELAY = TimeUnit.SECONDS.toMillis(60);
 
     private static final String LOCK_TAG = "com.kvaster.mobell.MobotixEventService";
 
     private static final String ACTION_TIMEOUT = "com.kvaster.mobell.TIMEOUT";
-    private static final String ACTION_START_TIMEOUT = "com.kvaster.mobell.START_TIMEOUT";
+    private static final String ACTION_RECONNECT = "com.kvaster.mobell.RECONNECT";
 
     private static final int NOTIFICATION_ID = 101;
 
@@ -44,9 +49,20 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private MxpegStreamer streamer;
     private WifiManager.WifiLock wifiLock;
     private PowerManager.WakeLock wakeLock;
+
     private AlarmManager alarmManager;
+    private volatile PendingIntent currentAlarm;
 
     private Notification serviceNotification;
+
+    private long reconnectDelay = RECONNECT_MIN_DELAY;
+
+    private interface EventProcessor
+    {
+        boolean onEvent(JSONObject e) throws Exception;
+    }
+
+    private Map<Integer,EventProcessor> events = new ConcurrentHashMap<>();
 
     public class LocalBinder extends Binder
     {
@@ -61,6 +77,11 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     public IBinder onBind(Intent intent)
     {
         return binder;
+    }
+
+    public static void startService(Context ctx)
+    {
+        ctx.startService(new Intent(ctx, MobotixEventService.class));
     }
 
     @SuppressLint("WakelockTimeout")
@@ -78,13 +99,13 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         // we need wifi lock to receive packest over wifi even in sleep mode
         wifiLock = ((WifiManager)Objects.requireNonNull(getApplicationContext().getSystemService(WIFI_SERVICE)))
                 .createWifiLock(WifiManager.WIFI_MODE_FULL, LOCK_TAG);
+        wifiLock.setReferenceCounted(false);
         wifiLock.acquire();
 
-        // during connection we should acquire wake lock, we will release it only when we're connected
+        // we will use lock only during connection initiation
         wakeLock = ((PowerManager)Objects.requireNonNull(getSystemService(POWER_SERVICE)))
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, LOCK_TAG);
-        wakeLock.setReferenceCounted(true);
-        wakeLock.acquire();
+        wakeLock.setReferenceCounted(false);
 
         streamer = new MxpegStreamer(
                 BuildConfig.MOBOTIX_HOST,
@@ -94,9 +115,12 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 this,
                 1024 * 4, // events packets are small - 4kb is enough
                 1024 * 16, // whole event data is small - 16kb is enough
-                (int)READ_TIMEOUT
+                (int)READ_TIMEOUT,
+                0 // we will take care of reconnections by ourselves in order to save battery life
         );
         streamer.start();
+
+        scheduleReconnect();
     }
 
     private Notification createServiceNofitication()
@@ -129,53 +153,37 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         return builder.build();
     }
 
-    public static void startServiceTimeout(Context ctx)
+    private void scheduleReconnect()
     {
-        try
-        {
-            Log.i(TAG, "Starting timeout");
-            Intent i = new Intent(ctx, MobotixEventService.class)
-                    .setAction(ACTION_TIMEOUT);
-            ctx.startService(i);
-        }
-        catch (Exception e)
-        {
-            Log.e(TAG, "MBE: ERR", e);
-        }
+        scheduleAction(ACTION_RECONNECT, reconnectDelay);
+
+        reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_DELAY);
     }
 
-    private void startTimeout()
+    private void scheduleTimeout()
     {
-        try
-        {
-            wakeLock.acquire();
+        scheduleAction(ACTION_TIMEOUT, PING_MIN_DELAY);
+    }
 
-            Log.i(TAG, "MBE: start timeout requested");
+    private void scheduleAction(String action, long delayMillis)
+    {
+        Log.i(TAG, "MBE: action scheduled: " + action + " / " + delayMillis);
 
-            Intent i = new Intent(this, MobotixEventService.class)
-                    .setAction(ACTION_TIMEOUT);
-            PendingIntent pi = PendingIntent.getService(this, 0, i, PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent pi = currentAlarm;
+        if (pi != null)
+            alarmManager.cancel(pi);
 
-            alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + PING_MIN_DELAY, pi);
-
-            wakeLock.release();
-        }
-        catch (Exception e)
-        {
-            Log.e(TAG, "MBE: ERROR", e);
-        }
+        Intent i = new Intent(this, MobotixEventService.class).setAction(action);
+        pi = PendingIntent.getService(this, 0, i, PendingIntent.FLAG_UPDATE_CURRENT);
+        alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + delayMillis, pi);
+        currentAlarm = pi;
     }
 
     @Override
     public void onDestroy()
     {
-        wifiLock.setReferenceCounted(false);
-        if (wifiLock.isHeld())
-            wifiLock.release();
-
-        wakeLock.setReferenceCounted(false);
-        if (wakeLock.isHeld())
-            wakeLock.release();
+        wifiLock.release();
+        wakeLock.release();
 
         streamer.stop();
 
@@ -190,23 +198,27 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     {
         try
         {
-            startForeground(NOTIFICATION_ID, serviceNotification);
+            String action = intent == null ? null : intent.getAction();
 
-            wakeLock.acquire();
+            Log.i(TAG, "MBE: Start command - " + action);
 
-            Log.i(TAG, "MBE: Start command");
-
-            if (ACTION_TIMEOUT.equals(intent.getAction()))
+            if (ACTION_TIMEOUT.equals(action))
             {
                 Log.i(TAG, "MBE: timeout occured");
                 streamer.sendCmd("list_addressees");
             }
-            else if (ACTION_START_TIMEOUT.equals(intent.getAction()))
+            else if (ACTION_RECONNECT.equals(action))
             {
-                Log.i(TAG, "MBE: Start timeout");
+                Log.i(TAG, "MBE: forcing reconnect");
+                wakeLock.acquire(1000); // 1s - for reconnect attempt
+                scheduleReconnect();
+                streamer.forceReconnectIfNeed();
             }
-
-            wakeLock.release();
+            else
+            {
+                // service start (or restart) requested
+                startForeground(NOTIFICATION_ID, serviceNotification);
+            }
         }
         catch (Exception e)
         {
@@ -218,25 +230,62 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         return Service.START_STICKY;
     }
 
+    private int registerEvent(EventProcessor callback)
+    {
+        int id = streamer.nextId();
+        events.put(id, callback);
+        return id;
+    }
+
     @Override
     public void onStreamStart(int audioType)
     {
         Log.i(TAG, "MBE: " + new Date() + " | Stream start");
 
-        streamer.subscribeToEvents();
+        events.clear();
 
-        startTimeout();
+        // Some subscriptions. Probably we don't need even door events.
+        //streamer.sendCmd("subscription", ja("alarmupdate", true));
+        streamer.sendCmd("subscription", ja("door", true));
+        //streamer.sendCmd("subscription", ja("elight", true));
+        //streamer.sendCmd("subscription", ja("nearest_events", true));
 
-        wakeLock.release();
+        // REGISTER DEVICE
+        // {"result":[[32800,"Main Bell",""]],"error":null,"id":15}
+        // {"id":26,"method":"add_device","params":["B4:F1:DA:E8:C5:8A",[32800],"AxAPP+B4:F1:DA:E8:C5:8A"]}
+        // {"result":null,"error":[17,"device is already registered"],"id":26}
+        // {"id":27,"method":"register_device","params":["B4:F1:DA:E8:C5:8A"]}
+
+        // BELL
+        // {"result":["bell",true,false,[32800,"Main Bell",""]],"type":"cont","error":null,"id":27}
+        // {"result":["bell",false,true],"type":"cont","error":null,"id":27}
+        // {"id":47,"method":"bell_ack","params":[false]}
+        // {"id":83,"method":"stop"}
+        // {"id":88,"method":"trigger","params":["door"]}
+        // {"result":["door_open",true],"type":"cont","error":null,"id":73} - на trigger
+
+        streamer.sendCmd(registerEvent((e) -> {
+            int devId = e.getJSONArray("result").getJSONArray(0).getInt(0);
+            String mac = AndroidUtils.getMacAddr();
+            streamer.sendCmd(registerEvent((e2) -> {
+                streamer.sendCmd(registerEvent(this::onBell), "register_device", ja(mac));
+                return true;
+            }),"add_device", ja(mac, ja(devId), "MoBell+" + mac));
+            return true;
+        }), "list_addressees");
+
+        scheduleTimeout();
     }
 
-    @SuppressLint("WakelockTimeout")
     @Override
     public void onStreamStop()
     {
-        wakeLock.acquire();
-
         Log.i(TAG, "MBE: " + new Date() + " | Stream stop");
+
+        events.clear();
+
+        reconnectDelay = RECONNECT_MIN_DELAY;
+        scheduleReconnect();
     }
 
     @Override
@@ -253,19 +302,41 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         throw new IllegalStateException();
     }
 
+    private boolean onBell(JSONObject event)
+    {
+        // TODO remove this hack
+        Intent i = new Intent(this, MainActivity.class);
+        i.setAction(Intent.ACTION_MAIN);
+        i.addCategory(Intent.CATEGORY_LAUNCHER);
+        startActivity(i);
+
+        return false;
+    }
+
     @Override
     public void onMobotixEvent(JSONObject event)
     {
-        wakeLock.acquire();
-
         Log.i(TAG, "MBE: " + new Date() + " | " + event);
-        // TODO do something
 
-        if ("ping".equals(event.opt("method")))
-            streamer.sendCmd("pong");
+        try
+        {
+            int id = event.optInt("id");
+            EventProcessor ep = events.get(id);
+            if (ep != null)
+            {
+                if (ep.onEvent(event))
+                    events.remove(id);
+            }
 
-        startTimeout();
+            // TODO remove this hack
+            if ("ping".equals(event.opt("method")))
+                streamer.sendCmd("pong");
 
-        wakeLock.release();
+            scheduleTimeout();
+        }
+        catch (Exception e)
+        {
+            Log.e(TAG, "MBE: ERR", e);
+        }
     }
 }

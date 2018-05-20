@@ -1,7 +1,6 @@
 package com.kvaster.mobell;
 
 import android.util.Base64;
-import android.util.Log;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -13,7 +12,6 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -58,6 +56,7 @@ public class MxpegStreamer
 
     private final int ringBufferSize;
     private final int readTimeout;
+    private final long reconnectDelay;
 
     public MxpegStreamer(String host,
                          int port,
@@ -66,7 +65,8 @@ public class MxpegStreamer
                          Listener listener,
                          int bufferSize,
                          int ringBufferSize,
-                         int readTimeout)
+                         int readTimeout,
+                         long reconnectDelay)
     {
         buffer = ByteBuffer.allocateDirect(bufferSize);
 
@@ -79,6 +79,7 @@ public class MxpegStreamer
 
         this.ringBufferSize = ringBufferSize;
         this.readTimeout = readTimeout;
+        this.reconnectDelay = reconnectDelay;
     }
 
     public synchronized void start()
@@ -109,6 +110,11 @@ public class MxpegStreamer
 
             thread = null;
         }
+    }
+
+    public synchronized void forceReconnectIfNeed()
+    {
+        notifyAll();
     }
 
     private void write(byte[] data)
@@ -177,6 +183,7 @@ public class MxpegStreamer
                             ia.getHostAddress(),
                             Base64.encodeToString((login + ":" + password).getBytes(), Base64.NO_WRAP)));
 
+                    idGenerator.set(10); // reset id generator
                     listener.onStreamStart(Listener.AUDIO_PCM16);
                     connected = true;
 
@@ -189,7 +196,14 @@ public class MxpegStreamer
                     if (connected)
                         listener.onStreamStop();
 
-                    socket.close();
+                    try
+                    {
+                        socket.close();
+                    }
+                    catch (IOException e)
+                    {
+                        // do nothing
+                    }
 
                     packets.add(END_MARKER);
                     if (wt != null)
@@ -203,8 +217,11 @@ public class MxpegStreamer
 
             try
             {
-                if (keepRunning)
-                    Thread.sleep(500);
+                synchronized (this)
+                {
+                    if (keepRunning)
+                        wait(reconnectDelay);
+                }
             }
             catch (InterruptedException ie)
             {
@@ -424,8 +441,6 @@ public class MxpegStreamer
      */
     private void writeCmd(String cmd)
     {
-        Log.i(AndroidUtils.TAG, "MBE: sending cmd: " + new Date() + " | " + cmd);
-
         byte[] data = cmd.getBytes();
         data = Arrays.copyOf(data, data.length + 2);
         data[data.length - 2] = 0x0a;
@@ -433,14 +448,29 @@ public class MxpegStreamer
         write(data);
     }
 
+    public int nextId()
+    {
+        return idGenerator.getAndIncrement();
+    }
+
     public void sendCmd(String method)
     {
-        writeCmd(jo(je("id", idGenerator.getAndIncrement()), je("method", method)).toString());
+        sendCmd(nextId(), method);
+    }
+
+    public void sendCmd(int id, String method)
+    {
+        writeCmd(jo(je("id", id), je("method", method)).toString());
     }
 
     public void sendCmd(String method, Object params)
     {
-        writeCmd(jo(je("id", idGenerator.getAndIncrement()), je("method", method), je("params", params)).toString());
+        sendCmd(nextId(), method, params);
+    }
+
+    public void sendCmd(int id, String method, Object params)
+    {
+        writeCmd(jo(je("id", id), je("method", method), je("params", params)).toString());
     }
 
     public void startVideo()
@@ -448,13 +478,5 @@ public class MxpegStreamer
         sendCmd("mode", ja("mxpeg"));
         sendCmd("live", ja("false"));
         sendCmd("audiooutput", ja("pcm16"));
-    }
-
-    public void subscribeToEvents()
-    {
-        //sendCmd("subscription", ja("alarmupdate", true));
-        //sendCmd("subscription", ja("door", true));
-        sendCmd("subscription", ja("elight", true));
-        sendCmd("subscription", ja("nearest_events", true));
     }
 }

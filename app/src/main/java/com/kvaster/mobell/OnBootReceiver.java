@@ -9,7 +9,6 @@ public class OnBootReceiver extends BroadcastReceiver
     @Override
     public void onReceive(Context context, Intent intent)
     {
-        Intent service = new Intent(context, MobotixEventService.class);
-        context.startService(service);
+        MobotixEventService.startService(context);
     }
 }
