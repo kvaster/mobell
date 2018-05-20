@@ -2,9 +2,7 @@ package com.kvaster.mobell;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.Service;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
@@ -15,7 +13,6 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.DisplayMetrics;
 import android.view.Window;
-import android.view.WindowManager;
 import android.view.WindowManager.LayoutParams;
 import android.widget.FrameLayout;
 
@@ -66,6 +63,8 @@ public class MainActivity extends Activity
         setContentView(layout);
 
         MobotixEventService.startService(this);
+
+        Intent service = new Intent(this, MobotixEventService.class);
         bindService(service, connection, BIND_AUTO_CREATE);
     }
 
