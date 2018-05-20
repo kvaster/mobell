@@ -53,7 +53,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private PowerManager.WakeLock wakeLock;
 
     private AlarmManager alarmManager;
-    private AtomicReference<PendingIntent> currentAlarm;
+    private AtomicReference<PendingIntent> currentAlarm = new AtomicReference<>();
 
     private Notification serviceNotification;
 
