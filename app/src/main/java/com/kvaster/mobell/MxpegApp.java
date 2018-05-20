@@ -61,6 +61,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     @Override
     public void suspend()
     {
+        needResume = true; // sometimes we have unpause without resume...
         streamer.stop();
         MxpegNative.suspend();
     }

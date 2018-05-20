@@ -48,6 +48,12 @@ private:
     GLuint vTex;
     GLuint vbo;
 
+    GLuint scaleAttr;
+    GLuint posAttr;
+
+    int canvasWidth;
+    int canvasHeight;
+
     int width;
     int height;
 

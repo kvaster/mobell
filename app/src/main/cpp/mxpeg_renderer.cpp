@@ -153,13 +153,15 @@ void MxpegRenderer::resume()
 
             attribute vec2 a_position_0;
             attribute vec2 a_texcoord_0;
+            attribute vec2 p_scale;
+            attribute vec2 p_pos;
 
             varying vec2 texCoord;
 
             void main()
             {
                 texCoord = a_texcoord_0;
-                gl_Position = vec4(a_position_0, 0.0, 1.0);
+                gl_Position = vec4(a_position_0 * p_scale + p_pos, 0.0, 1.0);
             }
     )glsl";
 
@@ -193,6 +195,9 @@ void MxpegRenderer::resume()
     glEnableVertexAttribArray((GLuint)texAttr);
     glVertexAttribPointer((GLuint)texAttr, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
 
+    scaleAttr = (GLuint)glGetAttribLocation(program, "p_scale");
+    posAttr = (GLuint)glGetAttribLocation(program, "p_pos");
+
     /// textures
     glGenTextures(1, &yTex);
     glGenTextures(1, &uTex);
@@ -211,7 +216,8 @@ void MxpegRenderer::resume()
 
 void MxpegRenderer::canvasSizeChanged(int width, int height)
 {
-    glViewport(0, 0, width, height);
+    canvasWidth = width;
+    canvasHeight = height;
 }
 
 void MxpegRenderer::onStreamStart(int audioType)
@@ -358,11 +364,13 @@ void MxpegRenderer::update()
 
 void MxpegRenderer::draw()
 {
-    glClearColor(0.5f, 0.5f, 0.5f, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
-
     if (width > 0 && height > 0)
     {
+        glViewport(0, 0, canvasWidth, canvasHeight);
+
+        glClearColor(0.f, 0.f, 0.f, 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, yTex);
 
@@ -374,7 +382,36 @@ void MxpegRenderer::draw()
 
         glEnable(GL_TEXTURE_2D);
         glUseProgram(program);
+
+        float scaleX = 1;
+        float scaleY = 1;
+
+        if (canvasWidth > 0 && canvasHeight > 0)
+        {
+            float canvasRatio = (float)canvasWidth / canvasHeight;
+            float imgRatio = (float)width / height;
+
+            if (imgRatio > canvasRatio)
+            {
+                scaleX = 1.0f / canvasRatio * imgRatio;
+                scaleY = 1;
+            }
+            else
+            {
+                scaleX = 1;
+                scaleY = 1.0f / imgRatio * canvasRatio;
+            }
+        }
+
+        glVertexAttrib2f(scaleAttr, scaleX, scaleY);
+        glVertexAttrib2f(posAttr, 0.0f, 0.0f);
+
         glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+    else
+    {
+        glClearColor(0.5f, 0.5f, 0.5f, 0);
+        glClear(GL_COLOR_BUFFER_BIT);
     }
 }
 

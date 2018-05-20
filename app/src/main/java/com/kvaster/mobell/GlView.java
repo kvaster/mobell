@@ -6,6 +6,7 @@ import android.opengl.GLSurfaceView;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -17,10 +18,6 @@ import static com.kvaster.mobell.AndroidUtils.TAG;
 
 public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
 {
-    private final List<MotionEvent> motionQueue = new ArrayList<>();
-
-    private final Object touchSync = new Object();
-
     private boolean started = false;
     private boolean suspended = false;
     private boolean paused = false;
@@ -30,6 +27,8 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
 
     private final DisplayMetrics displayMetrics;
     private final GlApp app;
+
+    private final ScaleGestureDetector scaleGestureDetector;
 
     public GlView(GlApp app, Activity activity, DisplayMetrics displayMetrics)
     {
@@ -47,6 +46,10 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
         // Pop up for canvas. Now canvas is rendered on top of background.
         setZOrderOnTop(true);
         setRenderMode(RENDERMODE_CONTINUOUSLY);
+
+        scaleGestureDetector = new ScaleGestureDetector(activity, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+
+        });
     }
 
     public void stop()
@@ -193,7 +196,6 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
     @Override
     public void onSurfaceChanged(GL10 gl, int width, int height)
     {
-        app.canvasSizeChanged(width, height);
         if (!started)
         {
             app.start();
@@ -202,6 +204,8 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
             final Activity a = (Activity)getContext();
             a.runOnUiThread(() -> a.getWindow().setBackgroundDrawable(null));
         }
+
+        app.canvasSizeChanged(width, height);
     }
 
     @Override
@@ -216,7 +220,7 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
             {
                 drawTimestamp = now - (dt - frameTime);
 
-                processEvents();
+                // processEvents();
 
                 app.update();
                 app.draw();
@@ -235,24 +239,12 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
         // TODO (?)
     }
 
-    private void processEvents()
-    {
-        synchronized(touchSync)
-        {
-            // TODO: process events
-        }
-    }
-
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(MotionEvent event)
     {
         if (canProcess(event))
         {
-            synchronized(touchSync)
-            {
-                motionQueue.add(event);
-            }
 
             return true;
         }
