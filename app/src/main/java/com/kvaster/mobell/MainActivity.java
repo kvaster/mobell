@@ -55,7 +55,13 @@ public class MainActivity extends Activity
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
 
-        app = new MxpegApp(BuildConfig.MOBOTIX_HOST, BuildConfig.MOBOTIX_PORT, BuildConfig.MOBOTIX_LOGIN, BuildConfig.MOBOTIX_PASS);
+        app = new MxpegApp(
+                this,
+                BuildConfig.MOBOTIX_HOST,
+                BuildConfig.MOBOTIX_PORT,
+                BuildConfig.MOBOTIX_LOGIN,
+                BuildConfig.MOBOTIX_PASS
+        );
         view = new GlView(app, this, displayMetrics);
 
         FrameLayout layout = new FrameLayout(this);

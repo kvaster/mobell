@@ -1,5 +1,7 @@
 package com.kvaster.mobell;
 
+import android.view.MotionEvent;
+
 public interface GlApp
 {
     void start();
@@ -16,4 +18,7 @@ public interface GlApp
 
     void update();
     void draw();
+
+    boolean onTouchEvent(MotionEvent event);
+    void onBackButtonPressed();
 }

@@ -27,7 +27,7 @@ public:
     void resume();
 
     void update();
-    void draw();
+    void draw(float scale, float panX, float panY);
 
     void canvasSizeChanged(int width, int height);
 

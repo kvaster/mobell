@@ -50,10 +50,10 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_update
 /*
  * Class:     com_kvaster_mobell_MxpegNative
  * Method:    draw
- * Signature: ()V
+ * Signature: (FFF)V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_draw
-  (JNIEnv *, jclass);
+  (JNIEnv *, jclass, jfloat, jfloat, jfloat);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative

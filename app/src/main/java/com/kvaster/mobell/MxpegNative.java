@@ -11,7 +11,7 @@ public class MxpegNative
     public static native void resume();
 
     public static native void update();
-    public static native void draw();
+    public static native void draw(float scale, float panX, float panY);
 
     public static native void onStreamStart(int audioType);
     public static native void onStreamStop();

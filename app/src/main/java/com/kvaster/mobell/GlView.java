@@ -6,12 +6,9 @@ import android.opengl.GLSurfaceView;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.MotionEvent;
-import android.view.ScaleGestureDetector;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.kvaster.mobell.AndroidUtils.TAG;
@@ -27,8 +24,6 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
 
     private final DisplayMetrics displayMetrics;
     private final GlApp app;
-
-    private final ScaleGestureDetector scaleGestureDetector;
 
     public GlView(GlApp app, Activity activity, DisplayMetrics displayMetrics)
     {
@@ -46,10 +41,6 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
         // Pop up for canvas. Now canvas is rendered on top of background.
         setZOrderOnTop(true);
         setRenderMode(RENDERMODE_CONTINUOUSLY);
-
-        scaleGestureDetector = new ScaleGestureDetector(activity, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
-
-        });
     }
 
     public void stop()
@@ -236,35 +227,13 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
     // cause MotionEvent.BUTTON_BACK is accessible only from API 14.
     public void onBackButtonPressed()
     {
-        // TODO (?)
+        app.onBackButtonPressed();
     }
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(MotionEvent event)
     {
-        if (canProcess(event))
-        {
-
-            return true;
-        }
-
-        return false;
-    }
-
-    private static boolean canProcess(MotionEvent event)
-    {
-        switch (event.getActionMasked())
-        {
-            case MotionEvent.ACTION_DOWN:
-            case MotionEvent.ACTION_POINTER_DOWN:
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_POINTER_UP:
-            case MotionEvent.ACTION_MOVE:
-            case MotionEvent.ACTION_CANCEL:
-                return true;
-        }
-
-        return false;
+        return app.onTouchEvent(event);
     }
 }

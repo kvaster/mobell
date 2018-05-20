@@ -368,9 +368,9 @@ void MxpegRenderer::update()
         updateTextures();
 }
 
-void MxpegRenderer::draw()
+void MxpegRenderer::draw(float scale, float panX, float panY)
 {
-    if (width > 0 && height > 0)
+    if (width > 0 && height > 0 && canvasWidth > 0 && canvasHeight > 0)
     {
         glViewport(0, 0, canvasWidth, canvasHeight);
 
@@ -389,28 +389,25 @@ void MxpegRenderer::draw()
         glEnable(GL_TEXTURE_2D);
         glUseProgram(program);
 
-        float scaleX = 1;
-        float scaleY = 1;
+        float scaleX;
+        float scaleY;
 
-        if (canvasWidth > 0 && canvasHeight > 0)
+        float canvasRatio = (float)canvasWidth / canvasHeight;
+        float imgRatio = (float)width / height;
+
+        if (imgRatio > canvasRatio)
         {
-            float canvasRatio = (float)canvasWidth / canvasHeight;
-            float imgRatio = (float)width / height;
-
-            if (imgRatio > canvasRatio)
-            {
-                scaleX = 1.0f / canvasRatio * imgRatio;
-                scaleY = 1;
-            }
-            else
-            {
-                scaleX = 1;
-                scaleY = 1.0f / imgRatio * canvasRatio;
-            }
+            scaleX = 1.0f / canvasRatio * imgRatio;
+            scaleY = 1;
+        }
+        else
+        {
+            scaleX = 1;
+            scaleY = 1.0f / imgRatio * canvasRatio;
         }
 
-        glVertexAttrib2f(scaleAttr, scaleX, scaleY);
-        glVertexAttrib2f(posAttr, 0.0f, 0.0f);
+        glVertexAttrib2f(scaleAttr, scaleX * scale, scaleY * scale);
+        glVertexAttrib2f(posAttr, panX * 2 / canvasWidth, -panY * 2 / canvasHeight);
 
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }

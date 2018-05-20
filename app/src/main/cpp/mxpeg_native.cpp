@@ -79,10 +79,10 @@ void JNICALL Java_com_kvaster_mobell_MxpegNative_update(JNIEnv *env, jclass c)
         renderer->update();
 }
 
-void JNICALL Java_com_kvaster_mobell_MxpegNative_draw(JNIEnv *env, jclass c)
+void JNICALL Java_com_kvaster_mobell_MxpegNative_draw(JNIEnv *env, jclass c, jfloat scale, jfloat panX, jfloat panY)
 {
     if (renderer)
-        renderer->draw();
+        renderer->draw(scale, panX, panY);
 }
 
 void JNICALL Java_com_kvaster_mobell_MxpegNative_canvasSizeChanged(JNIEnv *env, jclass c, jint width, jint height)
