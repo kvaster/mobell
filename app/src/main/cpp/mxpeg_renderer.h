@@ -33,8 +33,8 @@ public:
 
     void onStreamStart(int audioType);
     void onStreamStop();
-    void onStreamVideoPacket(uint8_t* data, size_t size);
-    void onStreamAudioPacket(uint8_t* data, size_t size);
+    bool onStreamVideoPacket(uint8_t* data, size_t size);
+    bool onStreamAudioPacket(uint8_t* data, size_t size);
 
 private:
     static const int AUDIO_ALAW = 0;

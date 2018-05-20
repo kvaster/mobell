@@ -29,8 +29,8 @@ public class MxpegStreamer
 
         void onStreamStart(int audioType);
         void onStreamStop();
-        void onStreamVideoPacket(ByteBuffer packet, int size);
-        void onStreamAudioPacket(ByteBuffer packet, int size);
+        boolean onStreamVideoPacket(ByteBuffer packet, int size);
+        boolean onStreamAudioPacket(ByteBuffer packet, int size);
         void onMobotixEvent(JSONObject event);
     }
 
@@ -331,7 +331,8 @@ public class MxpegStreamer
         }
 
         int size = getPacket(start, r, buffer);
-        listener.onStreamVideoPacket(buffer, size);
+        if (!listener.onStreamVideoPacket(buffer, size))
+            throw new IOException("Error decoding video packet");
     }
 
     private void readAudioAlaw(RingBufferReader r) throws IOException
@@ -349,7 +350,8 @@ public class MxpegStreamer
         r.move(len - 2 - 12);
 
         int size = getPacket(start, r, buffer);
-        listener.onStreamAudioPacket(buffer, size);
+        if (!listener.onStreamAudioPacket(buffer, size))
+            throw new IOException("Error decoding alaw audio packet");
     }
 
     private void readAudioPcm(RingBufferReader r) throws IOException
@@ -370,7 +372,8 @@ public class MxpegStreamer
         if (type == 'A')
         {
             int size = getPacket(start, r, buffer);
-            listener.onStreamAudioPacket(buffer, size);
+            if (!listener.onStreamAudioPacket(buffer, size))
+                throw new IOException("Error decoding pcm audio packet");
         }
 
         r.cut(r.pos());

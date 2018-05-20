@@ -320,7 +320,7 @@ void MxpegRenderer::onStreamStop()
     }
 }
 
-void MxpegRenderer::onStreamVideoPacket(uint8_t* data, size_t size)
+bool MxpegRenderer::onStreamVideoPacket(uint8_t* data, size_t size)
 {
     AVPacket pkt;
     av_init_packet(&pkt);
@@ -332,6 +332,7 @@ void MxpegRenderer::onStreamVideoPacket(uint8_t* data, size_t size)
 
     pthread_mutex_lock(&videoMutex);
 
+    bool ok = true;
     bool got = false;
     int ret = 0;
     while (ret >= 0)
@@ -342,7 +343,10 @@ void MxpegRenderer::onStreamVideoPacket(uint8_t* data, size_t size)
             break;
 
         if (ret < 0) // error
+        {
+            ok = false;
             break;
+        }
 
         av_frame_unref(videoFrame);
         av_frame_ref(videoFrame, videoWorkFrame);
@@ -353,6 +357,8 @@ void MxpegRenderer::onStreamVideoPacket(uint8_t* data, size_t size)
 
     if (got)
         gotVideo = true;
+
+    return ok;
 }
 
 void MxpegRenderer::update()
@@ -456,7 +462,7 @@ void MxpegRenderer::updateTextures()
     pthread_mutex_unlock(&videoMutex);
 }
 
-void MxpegRenderer::onStreamAudioPacket(uint8_t *data, size_t size)
+bool MxpegRenderer::onStreamAudioPacket(uint8_t *data, size_t size)
 {
     if (audioType == AUDIO_ALAW)
     {
@@ -468,6 +474,7 @@ void MxpegRenderer::onStreamAudioPacket(uint8_t *data, size_t size)
 
         avcodec_send_packet(audioCodecCtx, &pkt);
 
+        bool ok = true;
         int ret = 0;
         while (ret >= 0)
         {
@@ -477,14 +484,20 @@ void MxpegRenderer::onStreamAudioPacket(uint8_t *data, size_t size)
                 break;
 
             if (ret < 0) // error
+            {
+                ok = false;
                 break;
+            }
 
             enqueueAudio(audioWorkFrame->data[0], (SLuint32) audioWorkFrame->nb_samples * 2);
         }
+
+        return ok;
     }
     else
     {
         enqueueAudio(data, (SLuint32) size);
+        return true;
     }
 }
 

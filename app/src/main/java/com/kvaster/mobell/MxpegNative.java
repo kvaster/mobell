@@ -15,8 +15,8 @@ public class MxpegNative
 
     public static native void onStreamStart(int audioType);
     public static native void onStreamStop();
-    public static native void onStreamVideoPacket(ByteBuffer packet, int size);
-    public static native void onStreamAudioPacket(ByteBuffer packet, int size);
+    public static native boolean onStreamVideoPacket(ByteBuffer packet, int size);
+    public static native boolean onStreamAudioPacket(ByteBuffer packet, int size);
 
     public static native void canvasSizeChanged(int width, int height);
 

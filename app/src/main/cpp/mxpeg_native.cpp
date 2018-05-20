@@ -103,16 +103,18 @@ void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamStop(JNIEnv *env, jclas
         renderer->onStreamStop();
 }
 
-void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamVideoPacket(JNIEnv *env, jclass c, jobject buffer, jint size)
+jboolean JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamVideoPacket(JNIEnv *env, jclass c, jobject buffer, jint size)
 {
     if (renderer)
-        renderer->onStreamVideoPacket((uint8_t *) env->GetDirectBufferAddress(buffer), (size_t) size);
+        return (jboolean)renderer->onStreamVideoPacket((uint8_t *) env->GetDirectBufferAddress(buffer), (size_t) size);
+    return JNI_FALSE;
 }
 
-void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamAudioPacket(JNIEnv *env, jclass c, jobject buffer, jint size)
+jboolean JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamAudioPacket(JNIEnv *env, jclass c, jobject buffer, jint size)
 {
     if (renderer)
-        renderer->onStreamAudioPacket((uint8_t *) env->GetDirectBufferAddress(buffer), (size_t) size);
+        return (jboolean)renderer->onStreamAudioPacket((uint8_t *) env->GetDirectBufferAddress(buffer), (size_t) size);
+    return JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_startRecord(JNIEnv *env, jclass c, jobject listener)

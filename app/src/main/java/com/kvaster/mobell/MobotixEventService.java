@@ -301,14 +301,14 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     }
 
     @Override
-    public void onStreamVideoPacket(ByteBuffer packet, int size)
+    public boolean onStreamVideoPacket(ByteBuffer packet, int size)
     {
         // we should not receive video packets in service
         throw new IllegalStateException();
     }
 
     @Override
-    public void onStreamAudioPacket(ByteBuffer packet, int size)
+    public boolean onStreamAudioPacket(ByteBuffer packet, int size)
     {
         // we should not receive audio packets in service
         throw new IllegalStateException();

@@ -74,17 +74,17 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamStop
 /*
  * Class:     com_kvaster_mobell_MxpegNative
  * Method:    onStreamVideoPacket
- * Signature: (Ljava/nio/ByteBuffer;I)V
+ * Signature: (Ljava/nio/ByteBuffer;I)Z
  */
-JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamVideoPacket
+JNIEXPORT jboolean JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamVideoPacket
   (JNIEnv *, jclass, jobject, jint);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative
  * Method:    onStreamAudioPacket
- * Signature: (Ljava/nio/ByteBuffer;I)V
+ * Signature: (Ljava/nio/ByteBuffer;I)Z
  */
-JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamAudioPacket
+JNIEXPORT jboolean JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamAudioPacket
   (JNIEnv *, jclass, jobject, jint);
 
 /*
@@ -98,7 +98,7 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_canvasSizeChanged
 /*
  * Class:     com_kvaster_mobell_MxpegNative
  * Method:    startRecord
- * Signature: (Lcom/kvaster/mobell/MxpegNative/AudioRecorderListener;)V
+ * Signature: (Lcom/kvaster/mobell/AudioRecorderListener;)V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_startRecord
   (JNIEnv *, jclass, jobject);

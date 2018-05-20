@@ -141,15 +141,15 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     }
 
     @Override
-    public void onStreamVideoPacket(ByteBuffer packet, int size)
+    public boolean onStreamVideoPacket(ByteBuffer packet, int size)
     {
-        MxpegNative.onStreamVideoPacket(packet, size);
+        return MxpegNative.onStreamVideoPacket(packet, size);
     }
 
     @Override
-    public void onStreamAudioPacket(ByteBuffer packet, int size)
+    public boolean onStreamAudioPacket(ByteBuffer packet, int size)
     {
-        MxpegNative.onStreamAudioPacket(packet, size);
+        return MxpegNative.onStreamAudioPacket(packet, size);
     }
 
     @Override
