@@ -26,8 +26,8 @@ mobotix.pass="<password>"
 - [x] Audio decoding and playing
 - [x] Audio recording/encoding
 - [x] Stream recorded audio back to camera (door station)
-- [ ] Process ring events
-- [ ] Open door
+- [x] Process ring events
+- [x] Open door
 - [ ] Nice UI
 
 # Should I buy mobotix door stations ?
