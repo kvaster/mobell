@@ -18,6 +18,7 @@ import android.os.SystemClock;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.nio.ByteBuffer;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.kvaster.mobell.AndroidUtils.TAG;
 import static com.kvaster.mobell.JsonUtils.ja;
@@ -51,7 +53,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private PowerManager.WakeLock wakeLock;
 
     private AlarmManager alarmManager;
-    private volatile PendingIntent currentAlarm;
+    private AtomicReference<PendingIntent> currentAlarm;
 
     private Notification serviceNotification;
 
@@ -169,19 +171,29 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     {
         Log.i(TAG, "MBE: action scheduled: " + action + " / " + delayMillis);
 
-        PendingIntent pi = currentAlarm;
-        if (pi != null)
-            alarmManager.cancel(pi);
+        cancelScheduledAction();
 
         Intent i = new Intent(this, MobotixEventService.class).setAction(action);
-        pi = PendingIntent.getService(this, 0, i, PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent pi = PendingIntent.getService(this, 0, i, PendingIntent.FLAG_UPDATE_CURRENT);
         alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + delayMillis, pi);
-        currentAlarm = pi;
+
+        pi = currentAlarm.getAndSet(pi);
+        if (pi != null)
+            alarmManager.cancel(pi);
+    }
+
+    private void cancelScheduledAction()
+    {
+        PendingIntent pi = currentAlarm.getAndSet(null);
+        if (pi != null)
+            alarmManager.cancel(pi);
     }
 
     @Override
     public void onDestroy()
     {
+        cancelScheduledAction();
+
         wifiLock.release();
         wakeLock.release();
 
@@ -244,9 +256,9 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
         events.clear();
 
-        // Some subscriptions. Probably we don't need even door events.
+        // Some subscriptions. Generally we do not need this at all for our app.
         //streamer.sendCmd("subscription", ja("alarmupdate", true));
-        streamer.sendCmd("subscription", ja("door", true));
+        //streamer.sendCmd("subscription", ja("door", true));
         //streamer.sendCmd("subscription", ja("elight", true));
         //streamer.sendCmd("subscription", ja("nearest_events", true));
 
@@ -302,13 +314,16 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         throw new IllegalStateException();
     }
 
-    private boolean onBell(JSONObject event)
+    private boolean onBell(JSONObject event) throws JSONException
     {
-        // TODO remove this hack
-        Intent i = new Intent(this, MainActivity.class);
-        i.setAction(Intent.ACTION_MAIN);
-        i.addCategory(Intent.CATEGORY_LAUNCHER);
-        startActivity(i);
+        String type = String.valueOf(event.getJSONArray("result").get(0));
+        if ("bell".equals(type))
+        {
+            Intent i = new Intent(this, MainActivity.class);
+            i.setAction(Intent.ACTION_MAIN);
+            i.addCategory(Intent.CATEGORY_LAUNCHER);
+            startActivity(i);
+        }
 
         return false;
     }
@@ -338,5 +353,43 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         {
             Log.e(TAG, "MBE: ERR", e);
         }
+    }
+
+    //////////////////////////////////////////////
+    // Control calls
+
+    public enum CallStatus
+    {
+        NONE,
+        UNACCEPTED,
+        SUPPRESSED,
+        ACCEPTED
+    }
+
+    private volatile CallStatus callStatus;
+
+    public CallStatus getCallStatus()
+    {
+        return callStatus;
+    }
+
+    public void suppressCall()
+    {
+        streamer.sendCmd("stop");
+    }
+
+    public void acceptCall()
+    {
+        streamer.sendCmd("bell_ack", ja(true));
+    }
+
+    public void stopCall()
+    {
+        streamer.sendCmd("bell_ack", ja(false));
+    }
+
+    public void openDoor()
+    {
+        streamer.sendCmd("trigger", ja("door"));
     }
 }
