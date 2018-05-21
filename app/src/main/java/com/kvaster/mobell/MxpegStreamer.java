@@ -24,10 +24,7 @@ public class MxpegStreamer
 {
     public interface Listener
     {
-        int AUDIO_ALAW = 0;
-        int AUDIO_PCM16 = 1;
-
-        void onStreamStart(int audioType);
+        void onStreamStart();
         void onStreamStop();
         boolean onStreamVideoPacket(ByteBuffer packet, int size);
         boolean onStreamAudioPacket(ByteBuffer packet, int size);
@@ -184,7 +181,7 @@ public class MxpegStreamer
                             Base64.encodeToString((login + ":" + password).getBytes(), Base64.NO_WRAP)));
 
                     idGenerator.set(10); // reset id generator
-                    listener.onStreamStart(Listener.AUDIO_PCM16);
+                    listener.onStreamStart();
                     connected = true;
 
                     RingBufferReader r = new RingBufferReader(is, ringBufferSize);

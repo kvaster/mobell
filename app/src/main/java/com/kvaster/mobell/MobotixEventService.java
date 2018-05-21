@@ -250,7 +250,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     }
 
     @Override
-    public void onStreamStart(int audioType)
+    public void onStreamStart()
     {
         Log.i(TAG, "MBE: " + new Date() + " | Stream start");
 

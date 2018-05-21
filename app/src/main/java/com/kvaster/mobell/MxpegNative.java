@@ -13,7 +13,7 @@ public class MxpegNative
     public static native void update();
     public static native void draw(float scale, float panX, float panY);
 
-    public static native void onStreamStart(int audioType);
+    public static native void onStreamStart();
     public static native void onStreamStop();
     public static native boolean onStreamVideoPacket(ByteBuffer packet, int size);
     public static native boolean onStreamAudioPacket(ByteBuffer packet, int size);

@@ -183,9 +183,9 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     }
 
     @Override
-    public synchronized void onStreamStart(int audioType)
+    public synchronized void onStreamStart()
     {
-        MxpegNative.onStreamStart(audioType);
+        MxpegNative.onStreamStart();
         streamer.startVideo();
 
         if (recordingEnabled)
