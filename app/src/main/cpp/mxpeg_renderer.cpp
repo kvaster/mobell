@@ -281,6 +281,7 @@ void MxpegRenderer::onStreamStop()
 {
     pthread_mutex_lock(&videoMutex);
     width = height = 0;
+    av_frame_unref(videoFrame);
     pthread_mutex_unlock(&videoMutex);
 
     if (videoCodecCtx)
@@ -316,7 +317,7 @@ void MxpegRenderer::onStreamStop()
     {
         (*audioEngineObj)->Destroy(audioEngineObj);
         audioEngineObj = nullptr;
-        audioEngineObj = nullptr;
+        audioEngine = nullptr;
     }
 }
 
