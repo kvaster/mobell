@@ -12,9 +12,12 @@ import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.Window;
 import android.view.WindowManager.LayoutParams;
 import android.widget.FrameLayout;
+
+import static com.kvaster.mobell.AndroidUtils.TAG;
 
 public class MainActivity extends Activity
 {
@@ -27,6 +30,7 @@ public class MainActivity extends Activity
         public void onServiceConnected(ComponentName name, IBinder service)
         {
             MobotixEventService s = ((MobotixEventService.LocalBinder)service).getService();
+            Log.i(TAG, "Got service");
         }
 
         @Override
@@ -44,6 +48,8 @@ public class MainActivity extends Activity
     @Override
     public void onCreate(Bundle savedInstanceState)
     {
+        Log.i(TAG, "On create");
+
         super.onCreate(savedInstanceState);
 
         // show activity over locked screen
@@ -77,6 +83,8 @@ public class MainActivity extends Activity
     @Override
     protected void onDestroy()
     {
+        Log.i(TAG, "On destroy");
+
         try
         {
             view.stop();
@@ -94,6 +102,8 @@ public class MainActivity extends Activity
     @Override
     protected void onStart()
     {
+        Log.i(TAG, "On start");
+
         try
         {
             super.onStart();
@@ -112,6 +122,8 @@ public class MainActivity extends Activity
     @Override
     protected void onStop()
     {
+        Log.i(TAG, "On stop");
+
         try
         {
             view.suspend();
@@ -127,6 +139,8 @@ public class MainActivity extends Activity
     @Override
     protected void onResume()
     {
+        Log.i(TAG, "On resume");
+
         try
         {
             super.onResume();
@@ -142,6 +156,8 @@ public class MainActivity extends Activity
     @Override
     protected void onPause()
     {
+        Log.i(TAG, "On pause");
+
         try
         {
             view.pause();

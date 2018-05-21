@@ -6,7 +6,7 @@ import java.util.List;
 
 public class AndroidUtils
 {
-    public static final String TAG = "kvaster";
+    public static final String TAG = "kvaster-mobell";
 
     public static String getMacAddr()
     {
