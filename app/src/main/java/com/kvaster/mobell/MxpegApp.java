@@ -1,6 +1,7 @@
 package com.kvaster.mobell;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -8,13 +9,17 @@ import org.json.JSONObject;
 
 import java.nio.ByteBuffer;
 
-public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderListener
+import static com.kvaster.mobell.AndroidUtils.TAG;
+
+public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderListener, CallService.Listener
 {
     private boolean needResume;
     private final MxpegStreamer streamer;
 
     private boolean recordingEnabled;
     private boolean started;
+
+    private CallService callService;
 
     private final GestureDetector gestureDetector;
     private final ScaleGestureDetector scaleGestureDetector;
@@ -79,6 +84,18 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         });
     }
 
+    public void onServiceBind(CallService service)
+    {
+        // Service bind is called in main ui thread and is initiated in async mode during activity onCreate method.
+        // This means it should be always called BEFORE app's start method.
+        callService = service;
+    }
+
+    public void onServiceUnbind()
+    {
+        // do nothing
+    }
+
     public synchronized void allowRecording()
     {
         if (!recordingEnabled)
@@ -106,11 +123,15 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     {
         MxpegNative.start();
         streamer.start();
+
+        callService.addListener(this);
     }
 
     @Override
     public void stop()
     {
+        callService.removeListener(this);
+
         streamer.stop();
         MxpegNative.stop();
     }
@@ -118,7 +139,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     @Override
     public void suspend()
     {
-        needResume = true; // sometimes we have unpause without resume...
+        needResume = true; // sometimes we can receive canvasSizeChanged before resume...
         streamer.stop();
         MxpegNative.suspend();
     }
@@ -126,7 +147,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     @Override
     public void resume()
     {
-        // реальный resume делаем только когда будет создан surface
+        // real resume will be done only after surface creation
         needResume = true;
         streamer.start();
     }
@@ -134,19 +155,19 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     @Override
     public void pause()
     {
-        // TODO
+        // do nothing
     }
 
     @Override
     public void unpause()
     {
-        // TODO
+        // do nothing
     }
 
     @Override
     public void canvasCreated(int width, int height, int dpi, float density)
     {
-        // TODO
+        // do nothing
     }
 
     @Override
@@ -253,5 +274,11 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         }
 
         return false;
+    }
+
+    @Override
+    public void onCallStatus(CallService.CallStatus status)
+    {
+        // TODO
     }
 }

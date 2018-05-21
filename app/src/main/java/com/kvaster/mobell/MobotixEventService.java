@@ -22,9 +22,13 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -32,7 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.kvaster.mobell.AndroidUtils.TAG;
 import static com.kvaster.mobell.JsonUtils.ja;
 
-public class MobotixEventService extends Service implements MxpegStreamer.Listener
+public class MobotixEventService extends Service implements MxpegStreamer.Listener, CallService
 {
     private static final long PING_MIN_DELAY = TimeUnit.SECONDS.toMillis(120);
     private static final long READ_TIMEOUT = PING_MIN_DELAY + TimeUnit.SECONDS.toMillis(120);
@@ -254,6 +258,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     {
         Log.i(TAG, "MBE: " + new Date() + " | Stream start");
 
+        resetCallStatus();
+
         events.clear();
 
         // Some subscriptions. Generally we do not need this at all for our app.
@@ -293,6 +299,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     public void onStreamStop()
     {
         Log.i(TAG, "MBE: " + new Date() + " | Stream stop");
+
+        resetCallStatus();
 
         events.clear();
 
@@ -343,10 +351,6 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                     events.remove(id);
             }
 
-            // TODO remove this hack
-            if ("ping".equals(event.opt("method")))
-                streamer.sendCmd("pong");
-
             scheduleTimeout();
         }
         catch (Exception e)
@@ -358,36 +362,68 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     //////////////////////////////////////////////
     // Control calls
 
-    public enum CallStatus
+    private Collection<Listener> listeners = new ArrayList<>();
+    private CallStatus callStatus;
+
+    private void resetCallStatus()
     {
-        NONE,
-        UNACCEPTED,
-        SUPPRESSED,
-        ACCEPTED
+        changeCallStatus(CallStatus.NONE);
     }
 
-    private volatile CallStatus callStatus;
-
-    public CallStatus getCallStatus()
+    private synchronized void changeCallStatus(CallStatus status)
     {
-        return callStatus;
+        if (callStatus != status)
+        {
+            callStatus = status;
+            for (Listener l : listeners)
+                l.onCallStatus(status);
+        }
     }
 
-    public void suppressCall()
+    @Override
+    public synchronized void addListener(Listener listener)
     {
-        streamer.sendCmd("stop");
+        listeners.add(listener);
+        listener.onCallStatus(callStatus);
     }
 
+    @Override
+    public synchronized void removeListener(Listener listener)
+    {
+        listeners.remove(listener);
+    }
+
+    @Override
+    public synchronized void suppressCall()
+    {
+        if (callStatus == CallStatus.UNACCEPTED)
+        {
+            changeCallStatus(CallStatus.SUPPRESSED);
+            streamer.sendCmd("stop");
+        }
+    }
+
+    @Override
     public void acceptCall()
     {
-        streamer.sendCmd("bell_ack", ja(true));
+        if (callStatus == CallStatus.UNACCEPTED)
+        {
+            changeCallStatus(CallStatus.ACCEPTED);
+            streamer.sendCmd("bell_ack", ja(true));
+        }
     }
 
+    @Override
     public void stopCall()
     {
-        streamer.sendCmd("bell_ack", ja(false));
+        if (callStatus == CallStatus.UNACCEPTED)
+        {
+            changeCallStatus(CallStatus.NONE);
+            streamer.sendCmd("bell_ack", ja(false));
+        }
     }
 
+    @Override
     public void openDoor()
     {
         streamer.sendCmd("trigger", ja("door"));

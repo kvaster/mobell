@@ -30,7 +30,7 @@ public class MainActivity extends Activity
         public void onServiceConnected(ComponentName name, IBinder service)
         {
             MobotixEventService s = ((MobotixEventService.LocalBinder)service).getService();
-            Log.i(TAG, "Got service");
+            app.onServiceBind(s);
         }
 
         @Override
@@ -89,6 +89,7 @@ public class MainActivity extends Activity
         {
             view.stop();
 
+            app.onServiceUnbind();
             unbindService(connection);
 
             super.onDestroy();
