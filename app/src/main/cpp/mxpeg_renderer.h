@@ -36,9 +36,10 @@ public:
     bool onStreamVideoPacket(uint8_t* data, size_t size);
     bool onStreamAudioPacket(uint8_t* data, size_t size);
 
-private:
     static const int AUDIO_ALAW = 0;
     static const int AUDIO_PCM16 = 1;
+
+private:
 
     static const int QUEUE_BUFFERS = 8;
 
