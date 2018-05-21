@@ -128,6 +128,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     {
         // реальный resume делаем только когда будет создан surface
         needResume = true;
+        streamer.start();
     }
 
     @Override
@@ -155,7 +156,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         {
             needResume = false;
             realResume();
-            streamer.start();
+            //streamer.start();
         }
 
         scale = 1;
