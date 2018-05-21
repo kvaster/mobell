@@ -162,7 +162,7 @@ public class MainActivity extends Activity
 
     private void onCatch(Throwable t)
     {
-        // TODO отработать ошибку
+        // TODO process error
     }
 
     private boolean checkPermissions()
@@ -181,7 +181,6 @@ public class MainActivity extends Activity
                 break;
             }
         }
-
 
         if (req)
         {
