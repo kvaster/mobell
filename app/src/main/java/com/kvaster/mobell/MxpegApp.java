@@ -544,7 +544,6 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                 setActions(
                         createVolumeOnOffAction(false),
                         createMicOnOffAction(false),
-                        createDoorOpenAction(false, false),
                         createDoorOpenAction(false, false)
                 );
                 break;
