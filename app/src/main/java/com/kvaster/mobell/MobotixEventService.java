@@ -325,10 +325,21 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         String type = String.valueOf(event.getJSONArray("result").get(0));
         if ("bell".equals(type))
         {
-            Intent i = new Intent(this, MainActivity.class);
-            i.setAction(Intent.ACTION_MAIN);
-            i.addCategory(Intent.CATEGORY_LAUNCHER);
-            startActivity(i);
+            boolean isRing = event.getJSONArray("result").getBoolean(0);
+
+            if (isRing)
+            {
+                changeCallStatus(CallStatus.UNACCEPTED);
+
+                Intent i = new Intent(this, MainActivity.class);
+                i.setAction(Intent.ACTION_MAIN);
+                i.addCategory(Intent.CATEGORY_LAUNCHER);
+                startActivity(i);
+            }
+            else
+            {
+                changeCallStatus(CallStatus.IDLE);
+            }
         }
 
         return false;
