@@ -4,7 +4,8 @@ public interface CallService
 {
     enum CallStatus
     {
-        NONE,
+        DISCONNECTED,
+        IDLE,
         UNACCEPTED,
         SUPPRESSED,
         ACCEPTED

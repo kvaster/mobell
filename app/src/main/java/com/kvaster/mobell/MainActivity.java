@@ -212,6 +212,15 @@ public class MainActivity extends Activity
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String permissions[], @NonNull int[] grantResults)
     {
-        app.allowRecording();
+        int count = permissions.length;
+
+        for (int i = 0; i < count; i++)
+        {
+            if (Manifest.permission.RECORD_AUDIO.equals(permissions[i]))
+            {
+                if (grantResults[i] == PackageManager.PERMISSION_GRANTED)
+                    app.allowRecording();
+            }
+        }
     }
 }

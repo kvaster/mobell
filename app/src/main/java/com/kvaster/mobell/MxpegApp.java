@@ -22,8 +22,12 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private boolean needResume;
     private final MxpegStreamer streamer;
 
-    private boolean recordingEnabled;
     private boolean started;
+    private boolean recordingEnabled;
+    private boolean recordingRequested;
+    private boolean recordingInProgress;
+
+    private volatile boolean volumeEnabled;
 
     private CallService callService;
 
@@ -57,12 +61,37 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                 return true;
             }
 
+            @Override
             public boolean onDoubleTap(MotionEvent e)
             {
                 scale = 1;
                 panX = 0;
                 panY = 0;
                 return true;
+            }
+
+            @Override
+            public boolean onDown(MotionEvent e)
+            {
+                return onActionFocus((int)e.getX(), (int)e.getY());
+            }
+
+            @Override
+            public void onLongPress(MotionEvent e)
+            {
+                onActionFocus((int)e.getX(), (int)e.getY());
+            }
+
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY)
+            {
+                return false;
+            }
+
+            @Override
+            public boolean onSingleTapUp(MotionEvent e)
+            {
+                return onActionPerform((int)e.getX(), (int)e.getY());
             }
         });
 
@@ -93,7 +122,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         });
 
         int w = Math.min(displayMetrics.widthPixels, displayMetrics.heightPixels);
-        int iw = w / 5;
+        int iw = w / 6;
         iconDist = iw / 5;
         iconTexHeight = iconTexWidth = iw >= 256 ? 256 : 128;
         iconHeight = iconWidth = iw;
@@ -115,24 +144,43 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
     public synchronized void allowRecording()
     {
-        if (!recordingEnabled)
+        recordingEnabled = true;
+    }
+
+    private synchronized void requestStartRecording()
+    {
+        if (recordingEnabled)
         {
-            recordingEnabled = true;
+            recordingRequested = true;
             if (started)
                 startRecording();
         }
     }
 
-    private void startRecording()
+    private synchronized void requestStopRecording()
     {
-        streamer.startAudio();
-        MxpegNative.startRecord(this);
+        recordingRequested = false;
+        stopRecording();
     }
 
-    private void stopRecording()
+    private synchronized void startRecording()
     {
-        MxpegNative.stopRecord();
-        streamer.stopAudio();
+        if (!recordingInProgress)
+        {
+            recordingInProgress = true;
+            streamer.startAudio();
+            MxpegNative.startRecord(this);
+        }
+    }
+
+    private synchronized void stopRecording()
+    {
+        if (recordingInProgress)
+        {
+            recordingInProgress = false;
+            MxpegNative.stopRecord();
+            streamer.stopAudio();
+        }
     }
 
     @Override
@@ -223,7 +271,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     public void draw()
     {
         MxpegNative.draw(scale, panX, panY);
-        drawIcons();
+        drawActions();
     }
 
     private void realResume()
@@ -235,10 +283,12 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     @Override
     public synchronized void onStreamStart()
     {
+        started = true;
+
         MxpegNative.onStreamStart();
         streamer.startVideo();
 
-        if (recordingEnabled)
+        if (recordingEnabled && recordingRequested)
             startRecording();
     }
 
@@ -260,7 +310,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     @Override
     public boolean onStreamAudioPacket(ByteBuffer packet, int size)
     {
-        return MxpegNative.onStreamAudioPacket(packet, size);
+        return !volumeEnabled || MxpegNative.onStreamAudioPacket(packet, size);
     }
 
     @Override
@@ -304,10 +354,218 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         return false;
     }
 
-    @Override
-    public void onCallStatus(CallService.CallStatus status)
+    ////////////////////////////////////////////////////////////////
+    // actions
+
+    private interface IconSupplier
     {
-        // TODO
+        Icon getIcon();
+    }
+
+    private interface DisabledSupplier
+    {
+        boolean isDisabled();
+    }
+
+    private static class Action
+    {
+        int x;
+        int y;
+        int w;
+        int h;
+        boolean focused;
+
+        Runnable action;
+        IconSupplier iconSupplier;
+        DisabledSupplier disabledSupplier;
+
+        Action(Runnable action, Icon icon)
+        {
+            this(action, () -> icon);
+        }
+
+        Action(Runnable action, IconSupplier iconSupplier)
+        {
+            this(action, iconSupplier, null);
+        }
+
+        Action(Runnable action, IconSupplier iconSupplier, DisabledSupplier disabledSupplier)
+        {
+            this.action = action;
+            this.iconSupplier = iconSupplier;
+            this.disabledSupplier = disabledSupplier == null ? () -> false : disabledSupplier;
+        }
+
+        boolean hit(int px, int py)
+        {
+            return (px >= x && px < (x + w) && py >= y && py < (y + h));
+        }
+
+        Icon getIcon()
+        {
+            return iconSupplier.getIcon();
+        }
+
+        void action()
+        {
+            action.run();
+        }
+
+        boolean isDisabled()
+        {
+            return disabledSupplier.isDisabled();
+        }
+    }
+
+    private Action[] actions = {};
+
+    private synchronized void setActions(Action... actions)
+    {
+        for (Action a : this.actions)
+        {
+            a.x = a.y = a.w = a.h = 0;
+        }
+
+        this.actions = actions;
+    }
+
+    private synchronized void drawActions()
+    {
+        int x = (canvasWidth - (iconWidth * actions.length + iconDist * (actions.length - 1))) / 2;
+        int y = canvasHeight - iconHeight - iconDist;
+
+        for (Action a : actions)
+        {
+            a.x = x;
+            a.y = y;
+            a.w = iconWidth;
+            a.h = iconHeight;
+
+            drawIcon(a.getIcon().ordinal(), x, y, iconWidth, iconHeight, a.isDisabled() ? IconStyle.DISABLED : (a.focused ? IconStyle.FOCUSED : IconStyle.NORMAL));
+
+            x += iconWidth + iconDist;
+        }
+    }
+
+    private synchronized boolean onActionFocus(int x, int y)
+    {
+        for (Action a : actions)
+            a.focused = false;
+
+        for (Action a : actions)
+        {
+            if (a.hit(x, y))
+                a.focused = true;
+        }
+
+        return false;
+    }
+
+    private synchronized boolean onActionPerform(int x, int y)
+    {
+        for (Action a : actions)
+        {
+            if (a.focused && a.hit(x, y))
+                a.action();
+            a.focused = false;
+        }
+
+        return false;
+    }
+
+    @Override
+    public synchronized void onCallStatus(CallService.CallStatus status)
+    {
+        switch (status)
+        {
+            case DISCONNECTED:
+                setActions();
+                break;
+
+            case IDLE:
+                setActions(
+                        createVolumeOnOffAction(false),
+                        createMicOnOffAction(false),
+                        createDoorOpenAction(false, false)
+                );
+                break;
+
+            case SUPPRESSED:
+                setActions(
+                        createVolumeOnOffAction(true),
+                        createMicOnOffAction(false),
+                        createDoorOpenAction(false, false)
+                );
+                break;
+
+            case UNACCEPTED:
+                setActions(
+                        createAcceptCallAction(),
+                        createRejectCallAction(),
+                        createDoorOpenAction(true, true)
+                );
+                break;
+
+            case ACCEPTED:
+                setActions(
+                        createRejectCallAction(),
+                        createVolumeOnOffAction(true),
+                        createMicOnOffAction(true),
+                        createDoorOpenAction(false, true)
+                );
+                break;
+        }
+    }
+
+    private Action createRejectCallAction()
+    {
+        return new Action(() -> callService.stopCall(), Icon.PHONE_REJECT);
+    }
+
+    private Action createAcceptCallAction()
+    {
+        return new Action(() -> callService.acceptCall(), Icon.PHONE_ACCEPT);
+    }
+
+    private Action createDoorOpenAction(boolean acceptCall, boolean rejectCall)
+    {
+        return new Action(() -> {
+            if (acceptCall)
+                callService.acceptCall();
+            if (rejectCall)
+                callService.stopCall();
+            callService.openDoor();
+        }, Icon.DOOR_OPEN);
+    }
+
+    private Action createVolumeOnOffAction(boolean enabled)
+    {
+        volumeEnabled = enabled;
+
+        return new Action(() -> {
+            volumeEnabled = ! volumeEnabled;
+        }, () -> volumeEnabled ? Icon.VOLUME_ON : Icon.VOLUME_OFF);
+    }
+
+    private Action createMicOnOffAction(boolean enabled)
+    {
+        if (recordingEnabled)
+        {
+            if (enabled)
+                requestStartRecording();
+            else
+                requestStopRecording();
+        }
+
+        return new Action(() -> {
+            if (recordingEnabled)
+            {
+                if (recordingRequested)
+                    requestStopRecording();
+                else
+                    requestStartRecording();
+            }
+        }, () -> recordingRequested ? Icon.MIC_ON : Icon.MIC_OFF, () -> !recordingEnabled);
     }
 
     ////////////////////////////////////////////////////////////////
@@ -553,12 +811,5 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         GLES20.glDisableVertexAttribArray(texAttr);
         GLES20.glDisable(GLES20.GL_TEXTURE_2D);
         GLES20.glDisable(GLES20.GL_BLEND);
-    }
-
-    private void drawIcons()
-    {
-        drawIcon(0, iconDist, canvasHeight - iconHeight - iconDist, iconWidth, iconHeight, IconStyle.DISABLED);
-        drawIcon(0, iconWidth + iconDist * 2, canvasHeight - iconHeight - iconDist, iconWidth, iconHeight, IconStyle.NORMAL);
-        drawIcon(0, iconWidth * 2 + iconDist * 3, canvasHeight - iconHeight - iconDist, iconWidth, iconHeight, IconStyle.FOCUSED);
     }
 }

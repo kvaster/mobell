@@ -25,10 +25,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -258,7 +256,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     {
         Log.i(TAG, "MBE: " + new Date() + " | Stream start");
 
-        resetCallStatus();
+        changeCallStatus(CallStatus.IDLE);
 
         events.clear();
 
@@ -300,7 +298,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     {
         Log.i(TAG, "MBE: " + new Date() + " | Stream stop");
 
-        resetCallStatus();
+        changeCallStatus(CallStatus.DISCONNECTED);
 
         events.clear();
 
@@ -363,20 +361,15 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     // Control calls
 
     private Collection<Listener> listeners = new ArrayList<>();
-    private CallStatus callStatus;
-
-    private void resetCallStatus()
-    {
-        changeCallStatus(CallStatus.NONE);
-    }
+    private CallStatus callStatus = CallStatus.DISCONNECTED;
 
     private synchronized void changeCallStatus(CallStatus status)
     {
         if (callStatus != status)
         {
-            callStatus = status;
             for (Listener l : listeners)
                 l.onCallStatus(status);
+            callStatus = status;
         }
     }
 
@@ -418,7 +411,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     {
         if (callStatus == CallStatus.UNACCEPTED)
         {
-            changeCallStatus(CallStatus.NONE);
+            changeCallStatus(CallStatus.IDLE);
             streamer.sendCmd("bell_ack", ja(false));
         }
     }
