@@ -218,7 +218,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     public void resume()
     {
         callService.addListener(this);
-        
+
         // real resume will be done only after surface creation
         needResume = true;
         streamer.start();
@@ -386,7 +386,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         boolean isDisabled();
     }
 
-    private static class Action
+    private class Action
     {
         int x;
         int y;
@@ -417,7 +417,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
         boolean hit(int px, int py)
         {
-            return (px >= x && px < (x + w) && py >= y && py < (y + h));
+            return (px >= (x - toolIconDist) && px < (x + w + toolIconDist)
+                    && py >= (y - toolIconDist) && py < (y + h + toolIconDist));
         }
 
         Icon getIcon()
