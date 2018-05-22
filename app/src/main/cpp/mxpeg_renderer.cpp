@@ -187,14 +187,8 @@ void MxpegRenderer::resume()
 
     glUseProgram(program);
 
-    GLint vertAttr = glGetAttribLocation(program, "a_position_0");
-    glEnableVertexAttribArray((GLuint)vertAttr);
-    glVertexAttribPointer((GLuint)vertAttr, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(0 * sizeof(GLfloat)));
-
-    GLint texAttr = glGetAttribLocation(program, "a_texcoord_0");
-    glEnableVertexAttribArray((GLuint)texAttr);
-    glVertexAttribPointer((GLuint)texAttr, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
-
+    vertAttr = (GLuint)glGetAttribLocation(program, "a_position_0");
+    texAttr = (GLuint)glGetAttribLocation(program, "a_texcoord_0");
     scaleAttr = (GLuint)glGetAttribLocation(program, "p_scale");
     posAttr = (GLuint)glGetAttribLocation(program, "p_pos");
 
@@ -375,8 +369,11 @@ void MxpegRenderer::draw(float scale, float panX, float panY)
     {
         glViewport(0, 0, canvasWidth, canvasHeight);
 
-        glClearColor(0.f, 0.f, 0.f, 0);
+        glClearColor(0.f, 0.f, 0.f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
+        glUseProgram(program);
+        glEnable(GL_TEXTURE_2D);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, yTex);
@@ -386,9 +383,6 @@ void MxpegRenderer::draw(float scale, float panX, float panY)
 
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, vTex);
-
-        glEnable(GL_TEXTURE_2D);
-        glUseProgram(program);
 
         float scaleX;
         float scaleY;
@@ -410,11 +404,23 @@ void MxpegRenderer::draw(float scale, float panX, float panY)
         glVertexAttrib2f(scaleAttr, scaleX * scale, scaleY * scale);
         glVertexAttrib2f(posAttr, panX * 2 / canvasWidth, -panY * 2 / canvasHeight);
 
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glEnableVertexAttribArray(vertAttr);
+        glVertexAttribPointer(vertAttr, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(0 * sizeof(GLfloat)));
+        glEnableVertexAttribArray(texAttr);
+        glVertexAttribPointer(texAttr, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat)));
+
         glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        glDisableVertexAttribArray(vertAttr);
+        glDisableVertexAttribArray(texAttr);
+        glDisable(GL_TEXTURE_2D);
     }
     else
     {
-        glClearColor(0.5f, 0.5f, 0.5f, 0);
+        glViewport(0, 0, canvasWidth, canvasHeight);
+
+        glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
     }
 }

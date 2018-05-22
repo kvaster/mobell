@@ -49,6 +49,8 @@ private:
     GLuint vTex;
     GLuint vbo;
 
+    GLuint vertAttr;
+    GLuint texAttr;
     GLuint scaleAttr;
     GLuint posAttr;
 

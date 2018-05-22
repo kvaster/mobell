@@ -1,15 +1,21 @@
 package com.kvaster.mobell;
 
 import android.content.Context;
-import android.util.Log;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
+import android.opengl.GLES20;
+import android.opengl.GLUtils;
+import android.util.DisplayMetrics;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import org.json.JSONObject;
 
 import java.nio.ByteBuffer;
-
-import static com.kvaster.mobell.AndroidUtils.TAG;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
+import java.util.Objects;
 
 public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderListener, CallService.Listener
 {
@@ -27,7 +33,10 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private volatile float panX;
     private volatile float panY;
 
-    public MxpegApp(Context ctx, String host, int port, String login, String password)
+    private int canvasWidth;
+    private int canvasHeight;
+
+    public MxpegApp(Context ctx, String host, int port, String login, String password, DisplayMetrics displayMetrics)
     {
         streamer = new MxpegStreamer(host, port, login, password, this,
                 1024 * 1024 * 2, // 2mb packets - should be really enough even for 6mpx data
@@ -82,6 +91,14 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                 return true;
             }
         });
+
+        int w = Math.min(displayMetrics.widthPixels, displayMetrics.heightPixels);
+        int iw = w / 5;
+        iconDist = iw / 5;
+        iconTexHeight = iconTexWidth = iw >= 256 ? 256 : 128;
+        iconHeight = iconWidth = iw;
+
+        loadIcons(ctx);
     }
 
     public void onServiceBind(CallService service)
@@ -122,6 +139,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     public void start()
     {
         MxpegNative.start();
+        bindResources();
+
         streamer.start();
 
         callService.addListener(this);
@@ -133,6 +152,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         callService.removeListener(this);
 
         streamer.stop();
+
+        unbindResources();
         MxpegNative.stop();
     }
 
@@ -141,6 +162,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     {
         needResume = true; // sometimes we can receive canvasSizeChanged before resume...
         streamer.stop();
+
+        unbindResources();
         MxpegNative.suspend();
     }
 
@@ -184,6 +207,9 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         panX = 0;
         panY = 0;
 
+        canvasWidth = width;
+        canvasHeight = height;
+
         MxpegNative.canvasSizeChanged(width, height);
     }
 
@@ -197,11 +223,13 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     public void draw()
     {
         MxpegNative.draw(scale, panX, panY);
+        drawIcons();
     }
 
     private void realResume()
     {
         MxpegNative.resume();
+        bindResources();
     }
 
     @Override
@@ -280,5 +308,257 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     public void onCallStatus(CallService.CallStatus status)
     {
         // TODO
+    }
+
+    ////////////////////////////////////////////////////////////////
+    // java ui part
+
+    private enum Icon
+    {
+        PHONE_ACCEPT(R.drawable.ic_phone_accept),
+        PHONE_REJECT(R.drawable.ic_phone_reject),
+        MIC_ON(R.drawable.ic_mic_on),
+        MIC_OFF(R.drawable.ic_mic_off),
+        VOLUME_ON(R.drawable.ic_volume_on),
+        VOLUME_OFF(R.drawable.ic_volume_off),
+        DOOR_OPEN(R.drawable.ic_door_open);
+
+        int resId;
+
+        Icon(int resId)
+        {
+            this.resId = resId;
+        }
+    }
+
+    private enum IconStyle
+    {
+        NORMAL,
+        FOCUSED,
+        DISABLED
+    }
+
+    private int iconTexWidth;
+    private int iconTexHeight;
+    private int iconWidth;
+    private int iconHeight;
+    private int iconDist;
+
+    private Bitmap[] iconsBmps;
+    private int[] iconsTexs;
+
+    private int[] vbo = new int[1];
+    private int program;
+    private int vertAttr;
+    private int texAttr;
+    private int colorAttr;
+    private int scaleAttr;
+    private int posAttr;
+
+    private static final float[] STYLE_NORMAL = new float[] {
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1
+    };
+
+    private static final float[] STYLE_FOCUSED = new float[] {
+            1.2f, 0, 0, 0.2f,
+            0, 1.2f, 0, 0.2f,
+            0, 0, 1.2f, 0.2f,
+            0, 0, 0, 1
+    };
+
+    private static final float[] STYLE_DISABLED = new float[] {
+            0.2126f, 0.7152f, 0.0722f, 0,
+            0.2126f, 0.7152f, 0.0722f, 0,
+            0.2126f, 0.7152f, 0.0722f, 0,
+            0, 0, 0, 0.5f
+    };
+
+    private Bitmap loadIcon(Context ctx, int resId, int width, int height)
+    {
+        Drawable vd = Objects.requireNonNull(ctx.getDrawable(resId));
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        vd.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        vd.draw(canvas);
+        return bitmap;
+    }
+
+    private void loadIcons(Context ctx)
+    {
+        Icon[] icons = Icon.values();
+        final int count = icons.length;
+        iconsBmps = new Bitmap[count];
+
+        for (int i = 0; i < count; i++)
+            iconsBmps[i] = loadIcon(ctx, icons[i].resId, iconTexWidth, iconTexHeight);
+    }
+
+    private void bindResources()
+    {
+        // textures
+        final int count = iconsBmps.length;
+        iconsTexs = new int[count];
+        GLES20.glGenTextures(count, iconsTexs, 0);
+
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+
+        for (int i = 0; i < count; i++)
+        {
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, iconsTexs[i]);
+            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, iconsBmps[i], GLES20.GL_UNSIGNED_BYTE, 0);
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+            GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+        }
+
+        // vbo
+        float[] data = new float[] {
+                0,  1,  0, 0, // top left
+                1,  1,  1, 0, // top right
+                0,  0,  0, 1, // bottom left
+                1,  1,  1, 0, // top right
+                0,  0,  0, 1, // bottom left
+                1,  0,  1, 1  // bottom right
+        };
+
+        ByteBuffer bb = ByteBuffer.allocateDirect(data.length * 4);
+        bb.order(ByteOrder.nativeOrder());
+        FloatBuffer fb = bb.asFloatBuffer();
+        fb.put(data);
+        fb.position(0);
+
+        GLES20.glGenBuffers(1, vbo, 0);
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo[0]);
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, data.length * 4, fb, GLES20.GL_STATIC_DRAW);
+
+        // shaders
+        final String FRAG_SHADER =
+                "#ifdef GL_ES\n" +
+                "precision mediump float;\n" +
+                "#endif\n" +
+                "\n" +
+                "uniform sampler2D texture;\n" +
+                "uniform mat4 p_color;\n" +
+                "varying vec2 texCoord;\n" +
+                "\n" +
+                "void main()\n" +
+                "{\n" +
+                "gl_FragColor = texture2D(texture, texCoord) * p_color;\n" +
+                "}\n";
+
+        final String VERT_SHADER =
+                "#ifdef GL_ES\n" +
+                "precision mediump float;\n" +
+                "#endif\n" +
+                "\n" +
+                "attribute vec2 a_position_0;\n" +
+                "attribute vec2 a_texcoord_0;\n" +
+                "attribute vec2 p_scale;\n" +
+                "attribute vec2 p_pos;\n" +
+                "varying vec2 texCoord;\n" +
+                "\n" +
+                "void main()\n" +
+                "{\n" +
+                "texCoord = a_texcoord_0;\n" +
+                "gl_Position = vec4(a_position_0 * p_scale + p_pos, 0.0, 1.0);\n" +
+                "}\n";
+
+        program = GLES20.glCreateProgram();
+
+        int vertShader = compileShader(VERT_SHADER, GLES20.GL_VERTEX_SHADER);
+        int fragShader = compileShader(FRAG_SHADER, GLES20.GL_FRAGMENT_SHADER);
+
+        GLES20.glAttachShader(program, vertShader);
+        GLES20.glAttachShader(program, fragShader);
+
+        GLES20.glLinkProgram(program);
+
+        GLES20.glDetachShader(program, vertShader);
+        GLES20.glDetachShader(program, fragShader);
+
+        GLES20.glDeleteShader(vertShader);
+        GLES20.glDeleteShader(fragShader);
+
+        GLES20.glUseProgram(program);
+
+        vertAttr = GLES20.glGetAttribLocation(program, "a_position_0");
+        texAttr = GLES20.glGetAttribLocation(program, "a_texcoord_0");
+        scaleAttr = GLES20.glGetAttribLocation(program, "p_scale");
+        posAttr = GLES20.glGetAttribLocation(program, "p_pos");
+        colorAttr = GLES20.glGetUniformLocation(program, "p_color");
+    }
+
+    private void unbindResources()
+    {
+        GLES20.glDeleteTextures(iconsTexs.length, iconsTexs, 0);
+        GLES20.glDeleteProgram(program);
+        GLES20.glDeleteBuffers(1, vbo, 0);
+    }
+
+    private static int compileShader(String source, int type)
+    {
+        int handle = GLES20.glCreateShader(type);
+        GLES20.glShaderSource(handle, source);
+        GLES20.glCompileShader(handle);
+        return handle;
+    }
+
+    private void drawIcon(int id, int x, int y, int w, int h, IconStyle style)
+    {
+        GLES20.glUseProgram(program);
+
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, iconsTexs[id]);
+        GLES20.glEnable(GLES20.GL_TEXTURE_2D);
+        GLES20.glEnable(GLES20.GL_BLEND);
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+
+        float ws = (float)w * 2 / canvasWidth;
+        float hs = (float)h * 2 / canvasHeight;
+
+        float xp = (float)(x - canvasWidth / 2) * 2 / canvasWidth;
+        float yp = (float)(canvasHeight / 2 - y - h) * 2 / canvasHeight;
+
+        GLES20.glVertexAttrib2f(scaleAttr, ws, hs);
+        GLES20.glVertexAttrib2f(posAttr, xp, yp);
+
+        switch (style)
+        {
+            case NORMAL:
+                GLES20.glUniformMatrix4fv(colorAttr, 1, false, STYLE_NORMAL, 0);
+                break;
+
+            case FOCUSED:
+                GLES20.glUniformMatrix4fv(colorAttr, 1, false, STYLE_FOCUSED, 0);
+                break;
+
+            case DISABLED:
+                GLES20.glUniformMatrix4fv(colorAttr, 1, false, STYLE_DISABLED, 0);
+                break;
+        }
+
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vbo[0]);
+        GLES20.glEnableVertexAttribArray(vertAttr);
+        GLES20.glVertexAttribPointer(vertAttr, 2, GLES20.GL_FLOAT, false, 4 * 4, 0);
+        GLES20.glEnableVertexAttribArray(texAttr);
+        GLES20.glVertexAttribPointer(texAttr, 2, GLES20.GL_FLOAT, false, 4 * 4, 2 * 4);
+
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 6);
+
+        GLES20.glDisableVertexAttribArray(vertAttr);
+        GLES20.glDisableVertexAttribArray(texAttr);
+        GLES20.glDisable(GLES20.GL_TEXTURE_2D);
+        GLES20.glDisable(GLES20.GL_BLEND);
+    }
+
+    private void drawIcons()
+    {
+        drawIcon(0, iconDist, canvasHeight - iconHeight - iconDist, iconWidth, iconHeight, IconStyle.DISABLED);
+        drawIcon(0, iconWidth + iconDist * 2, canvasHeight - iconHeight - iconDist, iconWidth, iconHeight, IconStyle.NORMAL);
+        drawIcon(0, iconWidth * 2 + iconDist * 3, canvasHeight - iconHeight - iconDist, iconWidth, iconHeight, IconStyle.FOCUSED);
     }
 }

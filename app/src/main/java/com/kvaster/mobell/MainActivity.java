@@ -66,7 +66,8 @@ public class MainActivity extends Activity
                 BuildConfig.MOBOTIX_HOST,
                 BuildConfig.MOBOTIX_PORT,
                 BuildConfig.MOBOTIX_LOGIN,
-                BuildConfig.MOBOTIX_PASS
+                BuildConfig.MOBOTIX_PASS,
+                displayMetrics
         );
         view = new GlView(app, this, displayMetrics);
 
