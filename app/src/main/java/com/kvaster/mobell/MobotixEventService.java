@@ -395,6 +395,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     public synchronized void removeListener(Listener listener)
     {
         listeners.remove(listener);
+        listener.onCallStatus(CallStatus.DISCONNECTED);
     }
 
     @Override

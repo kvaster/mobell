@@ -205,6 +205,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     @Override
     public void suspend()
     {
+        callService.removeListener(this);
+
         needResume = true; // sometimes we can receive canvasSizeChanged before resume...
         streamer.stop();
 
@@ -215,6 +217,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     @Override
     public void resume()
     {
+        callService.addListener(this);
+        
         // real resume will be done only after surface creation
         needResume = true;
         streamer.start();
@@ -445,8 +449,18 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         panY = 0;
     }, Icon.DEFAULT_SIZE);
 
-    private synchronized void setActions(Action... actions)
+    private synchronized void setActions(boolean volumeEnabled, boolean micEnabled, Action... actions)
     {
+        this.volumeEnabled = volumeEnabled;
+
+        if (recordingEnabled)
+        {
+            if (micEnabled)
+                requestStartRecording();
+            else
+                requestStopRecording();
+        }
+
         for (Action a : this.actions)
         {
             a.resetSize();
@@ -537,27 +551,28 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         switch (status)
         {
             case DISCONNECTED:
-                setActions();
+                setActions(false, false);
                 break;
 
             case IDLE:
-                setActions(
-                        createVolumeOnOffAction(false),
-                        createMicOnOffAction(false),
+                setActions(false, false,
+                        createVolumeOnOffAction(),
+                        createMicOnOffAction(),
                         createDoorOpenAction(false, false)
                 );
                 break;
 
             case SUPPRESSED:
-                setActions(
-                        createVolumeOnOffAction(true),
-                        createMicOnOffAction(false),
+                setActions(true, false,
+                        createVolumeOnOffAction(),
+                        createMicOnOffAction(),
                         createDoorOpenAction(false, false)
                 );
                 break;
 
             case UNACCEPTED:
                 setActions(
+                        false, false,
                         createAcceptCallAction(),
                         createRejectCallAction(),
                         createDoorOpenAction(true, true)
@@ -565,10 +580,10 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                 break;
 
             case ACCEPTED:
-                setActions(
+                setActions(true, true,
                         createRejectCallAction(),
-                        createVolumeOnOffAction(true),
-                        createMicOnOffAction(true),
+                        createVolumeOnOffAction(),
+                        createMicOnOffAction(),
                         createDoorOpenAction(false, true)
                 );
                 break;
@@ -596,25 +611,15 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         }, Icon.DOOR_OPEN);
     }
 
-    private Action createVolumeOnOffAction(boolean enabled)
+    private Action createVolumeOnOffAction()
     {
-        volumeEnabled = enabled;
-
         return new Action(() -> {
             volumeEnabled = ! volumeEnabled;
         }, () -> volumeEnabled ? Icon.VOLUME_ON : Icon.VOLUME_OFF);
     }
 
-    private Action createMicOnOffAction(boolean enabled)
+    private Action createMicOnOffAction()
     {
-        if (recordingEnabled)
-        {
-            if (enabled)
-                requestStartRecording();
-            else
-                requestStopRecording();
-        }
-
         return new Action(() -> {
             if (recordingEnabled)
             {
