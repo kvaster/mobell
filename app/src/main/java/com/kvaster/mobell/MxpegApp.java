@@ -664,9 +664,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
     private Action createVolumeOnOffAction()
     {
-        return new Action(() -> {
-            volumeEnabled = ! volumeEnabled;
-        }, () -> volumeEnabled ? Icon.VOLUME_ON : Icon.VOLUME_OFF);
+        return new Action(() -> volumeEnabled = ! volumeEnabled,
+                () -> volumeEnabled ? Icon.VOLUME_ON : Icon.VOLUME_OFF);
     }
 
     private Action createMicOnOffAction()
@@ -683,7 +682,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     }
 
     ////////////////////////////////////////////////////////////////
-    // java ui part
+    // java opengl part
 
     private enum Icon
     {
