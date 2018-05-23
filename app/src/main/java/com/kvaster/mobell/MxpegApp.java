@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
+import android.media.AudioManager;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
 import android.util.DisplayMetrics;
@@ -11,6 +12,7 @@ import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
+import android.view.SoundEffectConstants;
 import org.json.JSONObject;
 
 import java.nio.ByteBuffer;
@@ -44,8 +46,12 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private int canvasWidth;
     private int canvasHeight;
 
+    private final AudioManager audioManager;
+
     public MxpegApp(Context ctx, String host, int port, String login, String password, DisplayMetrics displayMetrics)
     {
+        audioManager = Objects.requireNonNull((AudioManager)ctx.getSystemService(Context.AUDIO_SERVICE));
+
         streamer = new MxpegStreamer(host, port, login, password, this,
                 1024 * 1024 * 2, // 2mb packets - should be really enough even for 6mpx data
                 1024 * 1024 * 8, // 8mb ring buffer to hold large amount of data
@@ -340,7 +346,10 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         if (action == MotionEvent.ACTION_DOWN)
         {
             if (onActionFocus((int)event.getX(), (int)event.getY()))
+            {
                 actionGestureInProgress = true;
+                audioManager.playSoundEffect(SoundEffectConstants.CLICK);
+            }
         }
         else if (actionGestureInProgress)
         {
