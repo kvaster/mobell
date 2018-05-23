@@ -5,8 +5,12 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
+import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -15,6 +19,7 @@ import android.view.ScaleGestureDetector;
 import android.view.SoundEffectConstants;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -47,10 +52,24 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private int canvasHeight;
 
     private final AudioManager audioManager;
+    private final MediaPlayer mediaPlayer;
 
     public MxpegApp(Context ctx, String host, int port, String login, String password, DisplayMetrics displayMetrics)
     {
         audioManager = Objects.requireNonNull((AudioManager)ctx.getSystemService(Context.AUDIO_SERVICE));
+
+        try
+        {
+            Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+            mediaPlayer = new MediaPlayer();
+            mediaPlayer.setDataSource(ctx, notification);
+            mediaPlayer.setAudioStreamType(AudioManager.STREAM_RING);
+        }
+        catch (IOException e)
+        {
+            // do nothing ?
+            throw new RuntimeException(e);
+        }
 
         streamer = new MxpegStreamer(host, port, login, password, this,
                 1024 * 1024 * 2, // 2mb packets - should be really enough even for 6mpx data
@@ -459,7 +478,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         panY = 0;
     }, Icon.DEFAULT_SIZE);
 
-    private synchronized void setActions(boolean volumeEnabled, boolean micEnabled, Action... actions)
+    private synchronized void setActions(boolean volumeEnabled, boolean micEnabled, boolean ringtone, Action... actions)
     {
         this.volumeEnabled = volumeEnabled;
 
@@ -474,6 +493,28 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         for (Action a : this.actions)
         {
             a.resetSize();
+        }
+
+        if (ringtone)
+        {
+            if (!mediaPlayer.isPlaying())
+            {
+                try
+                {
+                    mediaPlayer.setLooping(true);
+                    mediaPlayer.prepare();
+                    mediaPlayer.start();
+                }
+                catch (IOException e)
+                {
+                    // do nothing
+                }
+            }
+        }
+        else
+        {
+            if (mediaPlayer.isPlaying())
+                mediaPlayer.stop();
         }
 
         this.actions = actions;
@@ -561,11 +602,11 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         switch (status)
         {
             case DISCONNECTED:
-                setActions(false, false);
+                setActions(false, false, false);
                 break;
 
             case IDLE:
-                setActions(false, false,
+                setActions(false, false, false,
                         createVolumeOnOffAction(),
                         createMicOnOffAction(),
                         createDoorOpenAction(false, false)
@@ -573,7 +614,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                 break;
 
             case SUPPRESSED:
-                setActions(true, false,
+                setActions(true, false, false,
                         createVolumeOnOffAction(),
                         createMicOnOffAction(),
                         createDoorOpenAction(false, false)
@@ -582,7 +623,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
             case UNACCEPTED:
                 setActions(
-                        false, false,
+                        false, false, true,
                         createAcceptCallAction(),
                         createRejectCallAction(),
                         createDoorOpenAction(true, true)
@@ -590,7 +631,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                 break;
 
             case ACCEPTED:
-                setActions(true, true,
+                setActions(true, true, false,
                         createRejectCallAction(),
                         createVolumeOnOffAction(),
                         createMicOnOffAction(),
