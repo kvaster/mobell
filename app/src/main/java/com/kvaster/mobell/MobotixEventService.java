@@ -219,6 +219,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             if (ACTION_TIMEOUT.equals(action))
             {
                 Log.i(TAG, "MBE: timeout occured");
+                wakeLock.acquire(1000);
                 streamer.sendCmd("list_addressees");
             }
             else if (ACTION_RECONNECT.equals(action))
@@ -320,12 +321,12 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         throw new IllegalStateException();
     }
 
-    private boolean onBell(JSONObject event) throws JSONException
+    private synchronized boolean onBell(JSONObject event) throws JSONException
     {
         String type = String.valueOf(event.getJSONArray("result").get(0));
         if ("bell".equals(type))
         {
-            boolean isRing = event.getJSONArray("result").getBoolean(0);
+            boolean isRing = event.getJSONArray("result").getBoolean(1);
 
             if (isRing)
             {
@@ -338,7 +339,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             }
             else
             {
-                changeCallStatus(CallStatus.IDLE);
+                if (callStatus == CallStatus.SUPPRESSED || callStatus == CallStatus.UNACCEPTED)
+                    changeCallStatus(CallStatus.IDLE);
             }
         }
 
@@ -358,6 +360,18 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             {
                 if (ep.onEvent(event))
                     events.remove(id);
+            }
+
+            if ("ping".equals(event.opt("method")))
+                streamer.sendCmd("pong");
+
+            if ("awake".equals(event.opt("method")))
+            {
+                Intent i = new Intent(this, MainActivity.class);
+                i.setAction(Intent.ACTION_MAIN);
+                i.addCategory(Intent.CATEGORY_LAUNCHER);
+                startActivity(i);
+                streamer.sendCmd("awake");
             }
 
             scheduleTimeout();
@@ -421,7 +435,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     @Override
     public void stopCall()
     {
-        if (callStatus == CallStatus.UNACCEPTED)
+        if (callStatus == CallStatus.UNACCEPTED || callStatus == CallStatus.ACCEPTED || callStatus == CallStatus.SUPPRESSED)
         {
             changeCallStatus(CallStatus.IDLE);
             streamer.sendCmd("bell_ack", ja(false));

@@ -32,6 +32,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private boolean needResume;
     private final MxpegStreamer streamer;
 
+    private boolean initialized;
+
     private boolean started;
     private boolean recordingEnabled;
     private boolean recordingRequested;
@@ -145,11 +147,12 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         loadIcons(ctx);
     }
 
-    public void onServiceBind(CallService service)
+    public synchronized void onServiceBind(CallService service)
     {
-        // Service bind is called in main ui thread and is initiated in async mode during activity onCreate method.
-        // This means it should be always called BEFORE app's start method.
         callService = service;
+
+        if (initialized)
+            callService.addListener(this);
     }
 
     public void onServiceUnbind()
@@ -213,7 +216,12 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
         streamer.start();
 
-        callService.addListener(this);
+        synchronized (this)
+        {
+            initialized = true;
+            if (callService != null)
+                callService.addListener(this);
+        }
     }
 
     @Override
