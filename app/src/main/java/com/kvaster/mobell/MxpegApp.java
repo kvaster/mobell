@@ -1,6 +1,7 @@
 package com.kvaster.mobell;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
@@ -29,6 +30,8 @@ import static com.kvaster.mobell.AndroidUtils.TAG;
 
 public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderListener, CallService.Listener
 {
+    private Context ctx;
+
     private boolean needResume;
     private final MxpegStreamer streamer;
 
@@ -58,6 +61,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
     public MxpegApp(Context ctx, String host, int port, String login, String password, DisplayMetrics displayMetrics)
     {
+        this.ctx = ctx;
+
         audioManager = Objects.requireNonNull((AudioManager)ctx.getSystemService(Context.AUDIO_SERVICE));
 
         try
@@ -479,7 +484,11 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     }
 
     private Action[] actions = {};
-    private Action settingsAction = new Action(() -> {}, Icon.SETTINGS);
+    private Action settingsAction = new Action(() -> {
+        Intent i = new Intent(ctx, AppPreferenceActivity.class);
+        ctx.startActivity(i);
+
+    }, Icon.SETTINGS);
     private Action sizeAction = new Action(() -> {
         scale = 1;
         panX = 0;

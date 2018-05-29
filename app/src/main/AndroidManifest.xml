@@ -29,6 +29,10 @@
 
         </activity>
 
+        <activity android:name=".AppPreferenceActivity"
+                  android:theme="@style/SettingsTheme"
+                  android:label="@string/settings"/>
+
         <service android:name=".MobotixEventService"
                  android:enabled="true"
                  android:exported="false"

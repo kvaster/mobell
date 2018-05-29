@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <EditTextPreference
+            android:key="host"
+            android:title="@string/p_host"
+            android:hint="@string/p_host_hint"
+    />
+
+    <EditTextPreference
+            android:key="port"
+            android:title="Port"
+            android:hint="port number"
+            android:numeric="integer"
+            android:defaultValue="80"
+    />
+
+    <EditTextPreference
+            android:key="login"
+            android:title="@string/p_login"
+            android:hint="@string/p_login_hint"
+    />
+
+    <EditTextPreference
+            android:key="password"
+            android:title="@string/p_pass"
+            android:hint="@string/p_pass_hint"
+            android:inputType="textPassword"
+    />
+
+    <RingtonePreference
+            android:key="ringtone"
+            android:title="@string/p_ringtone"
+            android:showDefault="true"
+            android:showSilent="true"
+            android:defaultValue="content://settings/system/ringtone"
+    />
+
+    <SwitchPreference
+            android:key="service_background"
+            android:title="@string/p_background"
+            android:summary="@string/p_background_hint"
+            android:defaultValue="false"
+    />
+
+    <SwitchPreference
+            android:key="service_fast_wifi"
+            android:title="@string/p_fast_wifi"
+            android:summary="@string/p_fast_wifi_hint"
+            android:defaultValue="false"
+    />
+
+    <SwitchPreference
+            android:key="service_wakelock"
+            android:title="@string/p_wakelock"
+            android:summary="@string/p_wakelock_hint"
+            android:defaultValue="false"
+    />
+
+</PreferenceScreen>

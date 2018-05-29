@@ -1,3 +1,21 @@
 <resources>
     <string name="app_name">MoBell</string>
+    <string name="settings">Settings</string>
+
+    <string name="p_host">Host</string>
+    <string name="p_host_hint">host name or ip</string>
+    <string name="p_port">Port</string>
+    <string name="p_port_hint">port number</string>
+    <string name="p_login">Login</string>
+    <string name="p_login_hint">user login</string>
+    <string name="p_pass">Password</string>
+    <string name="p_pass_hint">user password</string>
+    <string name="p_pass_summary">***</string>
+    <string name="p_ringtone">Ringtone</string>
+    <string name="p_background">Run in background</string>
+    <string name="p_background_hint">Run as service in background. This may affect battery life.</string>
+    <string name="p_fast_wifi">Keep wifi fast</string>
+    <string name="p_fast_wifi_hint">Keep wifi in high performance mode in order to have less packet loss. This may affect battery life.</string>
+    <string name="p_wakelock">Keep awake</string>
+    <string name="p_wakelock_hint">Keep device always awake. This may speed up call answer and improve connection stability, but will greatly affect battery life.</string>
 </resources>

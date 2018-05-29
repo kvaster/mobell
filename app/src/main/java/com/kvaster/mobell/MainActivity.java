@@ -172,11 +172,11 @@ public class MainActivity extends Activity
         }
     }
 
-    @Override
-    public void onBackPressed()
-    {
-        view.onBackButtonPressed();
-    }
+//    @Override
+//    public void onBackPressed()
+//    {
+//        view.onBackButtonPressed();
+//    }
 
     private void onCatch(Throwable t)
     {

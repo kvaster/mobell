@@ -36,8 +36,8 @@ import static com.kvaster.mobell.JsonUtils.ja;
 
 public class MobotixEventService extends Service implements MxpegStreamer.Listener, CallService
 {
-    private static final long PING_MIN_DELAY = TimeUnit.SECONDS.toMillis(120);
-    private static final long READ_TIMEOUT = PING_MIN_DELAY + TimeUnit.SECONDS.toMillis(120);
+    private static final long PING_MIN_DELAY = TimeUnit.SECONDS.toMillis(60);
+    private static final long READ_TIMEOUT = PING_MIN_DELAY + TimeUnit.SECONDS.toMillis(90);
     private static final long RECONNECT_MIN_DELAY = TimeUnit.SECONDS.toMillis(1);
     private static final long RECONNECT_MAX_DELAY = TimeUnit.SECONDS.toMillis(60);
 
@@ -102,7 +102,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
         // we need wifi lock to receive packest over wifi even in sleep mode
         wifiLock = ((WifiManager)Objects.requireNonNull(getApplicationContext().getSystemService(WIFI_SERVICE)))
-                .createWifiLock(WifiManager.WIFI_MODE_FULL, LOCK_TAG);
+                .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, LOCK_TAG);
         wifiLock.setReferenceCounted(false);
         wifiLock.acquire();
 
