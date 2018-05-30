@@ -2,6 +2,7 @@ package com.kvaster.mobell;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
@@ -11,6 +12,7 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
+import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -52,27 +54,16 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private int canvasWidth;
     private int canvasHeight;
 
+    private final SharedPreferences prefs;
     private final AudioManager audioManager;
-    private final MediaPlayer mediaPlayer;
+    private MediaPlayer mediaPlayer;
 
     public MxpegApp(Context ctx, String host, int port, String login, String password, DisplayMetrics displayMetrics)
     {
         this.ctx = ctx;
+        this.prefs = AndroidUtils.getSharedPreferences(ctx);
 
         audioManager = Objects.requireNonNull((AudioManager)ctx.getSystemService(Context.AUDIO_SERVICE));
-
-        try
-        {
-            Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-            mediaPlayer = new MediaPlayer();
-            mediaPlayer.setDataSource(ctx, notification);
-            mediaPlayer.setAudioStreamType(AudioManager.STREAM_RING);
-        }
-        catch (IOException e)
-        {
-            // do nothing ?
-            throw new RuntimeException(e);
-        }
 
         streamer = new PrefsAwareMxpegStreamer(
                 ctx,
@@ -148,6 +139,63 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         toolIconDist = iconDist / 4;
 
         loadIcons(ctx);
+    }
+
+    private synchronized void playRingtone()
+    {
+        try
+        {
+            try
+            {
+                if (mediaPlayer != null && mediaPlayer.isPlaying())
+                    mediaPlayer.stop();
+            }
+            catch (Exception e)
+            {
+                // do nothing
+            }
+
+            String ringtone = prefs.getString(AppPreferences.RINGTONE, "");
+            if (TextUtils.isEmpty(ringtone))
+            {
+                mediaPlayer = null;
+            }
+            else
+            {
+                mediaPlayer = new MediaPlayer();
+                mediaPlayer.setDataSource(ctx, Uri.parse(ringtone));
+                mediaPlayer.setAudioStreamType(AudioManager.STREAM_RING);
+
+                mediaPlayer.setLooping(true);
+                mediaPlayer.prepare();
+                mediaPlayer.start();
+                {
+                }
+
+            }
+        }
+        catch (Exception e)
+        {
+            // do nothing ?
+            mediaPlayer = null;
+        }
+    }
+
+    private synchronized void stopRingtone()
+    {
+        if (mediaPlayer != null && mediaPlayer.isPlaying())
+        {
+            try
+            {
+                mediaPlayer.stop();
+            }
+            catch (Exception e)
+            {
+                // do nothing
+            }
+
+            mediaPlayer = null;
+        }
     }
 
     public synchronized void onServiceBind(CallService service)
@@ -511,26 +559,9 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         }
 
         if (ringtone)
-        {
-            if (!mediaPlayer.isPlaying())
-            {
-                try
-                {
-                    mediaPlayer.setLooping(true);
-                    mediaPlayer.prepare();
-                    mediaPlayer.start();
-                }
-                catch (IOException e)
-                {
-                    // do nothing
-                }
-            }
-        }
+            playRingtone();
         else
-        {
-            if (mediaPlayer.isPlaying())
-                mediaPlayer.stop();
-        }
+            stopRingtone();
 
         this.actions = actions;
     }
