@@ -11,9 +11,7 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
-import android.provider.Settings;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -25,8 +23,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.Objects;
-
-import static com.kvaster.mobell.AndroidUtils.TAG;
 
 public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderListener, CallService.Listener
 {
@@ -78,10 +74,12 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
             throw new RuntimeException(e);
         }
 
-        streamer = new MxpegStreamer(host, port, login, password, this,
+        streamer = new PrefsAwareMxpegStreamer(
+                ctx,
+                this,
                 1024 * 1024 * 2, // 2mb packets - should be really enough even for 6mpx data
                 1024 * 1024 * 8, // 8mb ring buffer to hold large amount of data
-                3000, // on audio/video stream huge delays are really bad -> wait only 3s
+                5000, // on audio/video stream huge delays are really bad -> wait only 3s
                 500 // reconnect almost immediatelly with live streams
         );
 

@@ -1,5 +1,8 @@
 package com.kvaster.mobell;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+
 import java.net.NetworkInterface;
 import java.util.Collections;
 import java.util.List;
@@ -48,5 +51,10 @@ public class AndroidUtils
             data[i] = (byte)((Character.digit(hex.charAt(i * 2), 16) << 4) | Character.digit(hex.charAt(i * 2 + 1), 16));
 
         return data;
+    }
+
+    public static SharedPreferences getSharedPreferences(Context ctx)
+    {
+        return ctx.getSharedPreferences(ctx.getPackageName() + "_preferences", Context.MODE_PRIVATE);
     }
 }

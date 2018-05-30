@@ -111,11 +111,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, LOCK_TAG);
         wakeLock.setReferenceCounted(false);
 
-        streamer = new MxpegStreamer(
-                BuildConfig.MOBOTIX_HOST,
-                BuildConfig.MOBOTIX_PORT,
-                BuildConfig.MOBOTIX_LOGIN,
-                BuildConfig.MOBOTIX_PASS,
+        streamer = new PrefsAwareMxpegStreamer(
+                this,
                 this,
                 1024 * 4, // events packets are small - 4kb is enough
                 1024 * 16, // whole event data is small - 16kb is enough

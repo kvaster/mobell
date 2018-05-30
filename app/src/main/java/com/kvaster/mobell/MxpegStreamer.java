@@ -20,7 +20,7 @@ import static com.kvaster.mobell.JsonUtils.ja;
 import static com.kvaster.mobell.JsonUtils.je;
 import static com.kvaster.mobell.JsonUtils.jo;
 
-public class MxpegStreamer
+public abstract class MxpegStreamer
 {
     public interface Listener
     {
@@ -31,10 +31,6 @@ public class MxpegStreamer
         void onMobotixEvent(JSONObject event);
     }
 
-    private final String host;
-    private final int port;
-    private final String login;
-    private final String password;
     private final Listener listener;
 
     private final BlockingQueue<byte[]> packets = new LinkedBlockingQueue<>();
@@ -55,22 +51,15 @@ public class MxpegStreamer
     private final int readTimeout;
     private final long reconnectDelay;
 
-    public MxpegStreamer(String host,
-                         int port,
-                         String login,
-                         String password,
-                         Listener listener,
-                         int bufferSize,
-                         int ringBufferSize,
-                         int readTimeout,
-                         long reconnectDelay)
+    private Socket socket;
+
+    protected MxpegStreamer(Listener listener,
+                            int bufferSize,
+                            int ringBufferSize,
+                            int readTimeout,
+                            long reconnectDelay)
     {
         buffer = ByteBuffer.allocateDirect(bufferSize);
-
-        this.host = host;
-        this.port = port;
-        this.login = login;
-        this.password = password;
 
         this.listener = listener;
 
@@ -78,6 +67,11 @@ public class MxpegStreamer
         this.readTimeout = readTimeout;
         this.reconnectDelay = reconnectDelay;
     }
+
+    protected abstract String getHost();
+    protected abstract int getPort();
+    protected abstract String getLogin();
+    protected abstract String getPassword();
 
     public synchronized void start()
     {
@@ -91,27 +85,53 @@ public class MxpegStreamer
 
     public void stop()
     {
-        if (thread != null)
+        // ugly synchronization
+        synchronized (this)
         {
+            if (thread == null)
+                return;
+
             keepRunning = false;
-            thread.interrupt();
+            notifyAll();
+            closeSocket();
+        }
 
-            try
-            {
-                thread.join();
-            }
-            catch (InterruptedException ie)
-            {
-                // do nothing
-            }
+        try
+        {
+            thread.join();
+        }
+        catch (InterruptedException ie)
+        {
+            // do nothing
+        }
 
+        synchronized (this)
+        {
             thread = null;
+        }
+    }
+
+    private void closeSocket()
+    {
+        try
+        {
+            if (socket != null)
+                socket.close();
+        }
+        catch (IOException e)
+        {
+            // do nothing
         }
     }
 
     public synchronized void forceReconnectIfNeed()
     {
         notifyAll();
+    }
+
+    public synchronized void forceReconnect()
+    {
+        closeSocket();
     }
 
     private void write(byte[] data)
@@ -124,21 +144,25 @@ public class MxpegStreamer
         write(data.getBytes());
     }
 
+    private synchronized Socket createSocket()
+    {
+        return socket = new Socket();
+    }
+
     private void run()
     {
         while (keepRunning)
         {
+            boolean connected = false;
+            Thread wt = null;
+            final Socket socket = createSocket();
+
             try
             {
-                boolean connected = false;
-
-                InetAddress ia = InetAddress.getByName(host);
-                Socket socket = new Socket();
                 socket.setSoTimeout(readTimeout);
                 socket.setTcpNoDelay(true);
-                socket.connect(new InetSocketAddress(ia, port), 1000);
-
-                Thread wt = null;
+                InetAddress ia = InetAddress.getByName(getHost());
+                socket.connect(new InetSocketAddress(ia, getPort()), 1000);
 
                 try (InputStream is = socket.getInputStream(); OutputStream os = socket.getOutputStream())
                 {
@@ -178,38 +202,59 @@ public class MxpegStreamer
 
                     write(String.format("POST /control/eventstream.jpg HTTP/1.1\r\nHost: %s\r\nAuthorization: Basic %s\r\n\r\n",
                             ia.getHostAddress(),
-                            Base64.encodeToString((login + ":" + password).getBytes(), Base64.NO_WRAP)));
+                            Base64.encodeToString((getLogin() + ":" + getPassword()).getBytes(), Base64.NO_WRAP)));
+
+                    RingBufferReader r = new RingBufferReader(is, ringBufferSize);
+
+                    int s = r.pos();
+                    //noinspection StatementWithEmptyBody
+                    while (r.next() != 0x0d);
+
+                    String codeLine = new String(r.get(s, r.pos()));
+                    if (Integer.parseInt(codeLine.split(" ")[1]) != 200)
+                        throw new IOException();
 
                     idGenerator.set(10); // reset id generator
                     listener.onStreamStart();
                     connected = true;
 
-                    RingBufferReader r = new RingBufferReader(is, ringBufferSize);
                     while (keepRunning)
                         readPacket(r);
-                }
-                finally
-                {
-                    if (connected)
-                        listener.onStreamStop();
-
-                    try
-                    {
-                        socket.close();
-                    }
-                    catch (IOException e)
-                    {
-                        // do nothing
-                    }
-
-                    packets.add(END_MARKER);
-                    if (wt != null)
-                        wt.join();
                 }
             }
             catch (Exception e)
             {
                 // error, do nothing
+            }
+            finally
+            {
+                if (connected)
+                    listener.onStreamStop();
+
+                try
+                {
+                    socket.close();
+                }
+                catch (IOException e)
+                {
+                    // do nothing
+                }
+
+                synchronized (this)
+                {
+                    this.socket = null;
+                }
+
+                packets.add(END_MARKER);
+                try
+                {
+                    if (wt != null)
+                        wt.join();
+                }
+                catch (InterruptedException e)
+                {
+                    // do nothing
+                }
             }
 
             try
