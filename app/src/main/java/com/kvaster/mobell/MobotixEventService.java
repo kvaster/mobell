@@ -9,6 +9,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.wifi.WifiManager;
 import android.os.Binder;
 import android.os.Build;
@@ -34,7 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.kvaster.mobell.AndroidUtils.TAG;
 import static com.kvaster.mobell.JsonUtils.ja;
 
-public class MobotixEventService extends Service implements MxpegStreamer.Listener, CallService
+public class MobotixEventService extends Service implements MxpegStreamer.Listener, CallService, SharedPreferences.OnSharedPreferenceChangeListener
 {
     private static final long PING_MIN_DELAY = TimeUnit.SECONDS.toMillis(60);
     private static final long READ_TIMEOUT = PING_MIN_DELAY + TimeUnit.SECONDS.toMillis(90);
@@ -49,6 +50,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private static final int NOTIFICATION_ID = 101;
 
     private final IBinder binder = new LocalBinder();
+
+    private SharedPreferences prefs;
 
     private MxpegStreamer streamer;
     private WifiManager.WifiLock wifiLock;
@@ -88,11 +91,21 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         ctx.startService(new Intent(ctx, MobotixEventService.class));
     }
 
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key)
+    {
+        if (AppPreferences.SERVICE_FAST_WIFI.equals(key))
+            lockWifi();
+    }
+
     @SuppressLint("WakelockTimeout")
     @Override
     public void onCreate()
     {
         super.onCreate();
+
+        prefs = AndroidUtils.getSharedPreferences(this);
+        prefs.registerOnSharedPreferenceChangeListener(this);
 
         // we need to create notification for foreground service
         serviceNotification = createServiceNofitication();
@@ -101,10 +114,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         alarmManager = Objects.requireNonNull((AlarmManager)getSystemService(ALARM_SERVICE));
 
         // we need wifi lock to receive packest over wifi even in sleep mode
-        wifiLock = ((WifiManager)Objects.requireNonNull(getApplicationContext().getSystemService(WIFI_SERVICE)))
-                .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, LOCK_TAG);
-        wifiLock.setReferenceCounted(false);
-        wifiLock.acquire();
+        lockWifi();
 
         // we will use lock only during connection initiation
         wakeLock = ((PowerManager)Objects.requireNonNull(getSystemService(POWER_SERVICE)))
@@ -122,6 +132,24 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         streamer.start();
 
         scheduleReconnect();
+    }
+
+    private synchronized void lockWifi()
+    {
+        if (wifiLock != null)
+            wifiLock.release();
+
+        boolean highPerf = prefs.getBoolean(AppPreferences.SERVICE_FAST_WIFI, false);
+
+        wifiLock = ((WifiManager)Objects.requireNonNull(getApplicationContext().getSystemService(WIFI_SERVICE)))
+                .createWifiLock(highPerf ? WifiManager.WIFI_MODE_FULL_HIGH_PERF : WifiManager.WIFI_MODE_FULL, LOCK_TAG);
+        wifiLock.setReferenceCounted(false);
+        wifiLock.acquire();
+    }
+
+    private synchronized void unlockWifi()
+    {
+        wifiLock.release();
     }
 
     private Notification createServiceNofitication()
@@ -151,6 +179,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setPriority(Notification.PRIORITY_MIN)
                 .setCategory(Notification.CATEGORY_SERVICE);
+
         return builder.build();
     }
 
@@ -193,7 +222,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     {
         cancelScheduledAction();
 
-        wifiLock.release();
+        unlockWifi();
         wakeLock.release();
 
         streamer.stop();
