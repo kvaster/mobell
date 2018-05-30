@@ -9,8 +9,6 @@ Also intercom should operate without internet.
 
 Unfortunatelly eventstream protocol is not documented and can be used only via reverse engineering.
 
-This project is in really starting stage.
-
 # Compile and run
 Since there is no UI currently in project, you should provide host of your mobotix camera
 and credentials. Currently this is done via local.properties file (it is not under git control).
@@ -31,7 +29,9 @@ mobotix.pass="<password>"
 - [x] Stream recorded audio back to camera (door station)
 - [x] Process ring events
 - [x] Open door
-- [ ] Nice UI
+- [x] Nice UI
+- [ ] Working preferences
+- [ ] Nice notification icons
 
 # Should I buy mobotix door stations ?
 
