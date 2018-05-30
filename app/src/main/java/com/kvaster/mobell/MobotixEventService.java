@@ -64,6 +64,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private long reconnectDelay = RECONNECT_MIN_DELAY;
 
+    private volatile boolean isRunning = false;
+
     private interface EventProcessor
     {
         boolean onEvent(JSONObject e) throws Exception;
@@ -100,6 +102,11 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             ctx.startService(i);
     }
 
+    public static void stopService(Context ctx)
+    {
+        ctx.stopService(new Intent(ctx, MobotixEventService.class));
+    }
+
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key)
     {
@@ -111,6 +118,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     @Override
     public void onCreate()
     {
+        isRunning = true;
+
         super.onCreate();
 
         prefs = AndroidUtils.getSharedPreferences(this);
@@ -206,6 +215,9 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private void scheduleAction(String action, long delayMillis)
     {
+        if (!isRunning)
+            return;
+
         Log.i(TAG, "MBE: action scheduled: " + action + " / " + delayMillis);
 
         cancelScheduledAction();
@@ -229,6 +241,10 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     @Override
     public void onDestroy()
     {
+        isRunning = false;
+
+        Log.i(TAG, "MBE: service destroyed");
+
         cancelScheduledAction();
 
         unlockWifi();
@@ -236,8 +252,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
         streamer.stop();
 
-        NotificationManager nm = Objects.requireNonNull((NotificationManager)getSystemService(NOTIFICATION_SERVICE));
-        nm.cancel(NOTIFICATION_ID);
+        stopForeground(true);
 
         super.onDestroy();
     }
@@ -266,6 +281,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             }
             else
             {
+                Log.i(TAG, "MBE: service started");
                 // service start (or restart) requested
                 startForeground(NOTIFICATION_ID, serviceNotification);
             }

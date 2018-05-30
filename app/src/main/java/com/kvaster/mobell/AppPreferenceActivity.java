@@ -76,6 +76,16 @@ public class AppPreferenceActivity extends PreferenceActivity
                 }
             }
 
+            if (AppPreferences.SERVICE_BACKGROUND.equals(pref.getKey()))
+            {
+                //noinspection ConstantConditions
+                boolean enabled = (Boolean)newValue;
+                if (enabled)
+                    MobotixEventService.startService(getActivity());
+                else
+                    MobotixEventService.stopService(getActivity());
+            }
+
             return true;
         }
     }

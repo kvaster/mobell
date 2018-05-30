@@ -74,11 +74,6 @@ public class MainActivity extends Activity
         FrameLayout layout = new FrameLayout(this);
         layout.addView(view);
         setContentView(layout);
-
-        MobotixEventService.startService(this);
-
-        Intent service = new Intent(this, MobotixEventService.class);
-        bindService(service, connection, BIND_AUTO_CREATE);
     }
 
     @Override
@@ -89,9 +84,6 @@ public class MainActivity extends Activity
         try
         {
             view.stop();
-
-            app.onServiceUnbind();
-            unbindService(connection);
 
             super.onDestroy();
         }
@@ -109,6 +101,9 @@ public class MainActivity extends Activity
         try
         {
             super.onStart();
+
+            Intent service = new Intent(this, MobotixEventService.class);
+            bindService(service, connection, BIND_AUTO_CREATE);
 
             if (checkPermissions())
                 app.allowRecording();
@@ -129,6 +124,12 @@ public class MainActivity extends Activity
         try
         {
             view.suspend();
+
+            app.onServiceUnbind();
+            unbindService(connection);
+
+            if (!AndroidUtils.getSharedPreferences(this).getBoolean(AppPreferences.SERVICE_BACKGROUND, false))
+                MobotixEventService.stopService(this);
 
             super.onStop();
         }
