@@ -88,7 +88,16 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     public static void startService(Context ctx)
     {
-        ctx.startService(new Intent(ctx, MobotixEventService.class));
+        startService(ctx, false);
+    }
+
+    public static void startService(Context ctx, boolean forceForeground)
+    {
+        Intent i = new Intent(ctx, MobotixEventService.class);
+        if (forceForeground && Build.VERSION.SDK_INT>=Build.VERSION_CODES.O)
+            ctx.startForegroundService(i);
+        else
+            ctx.startService(i);
     }
 
     @Override
