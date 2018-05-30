@@ -42,7 +42,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private static final long RECONNECT_MIN_DELAY = TimeUnit.SECONDS.toMillis(1);
     private static final long RECONNECT_MAX_DELAY = TimeUnit.SECONDS.toMillis(60);
 
-    private static final String LOCK_TAG = "com.kvaster.mobell.MobotixEventService";
+    private static final String LOCK_TAG = "com.kvaster.mobell.MobotixEventService-fast";
+    private static final String PERM_LOCK_TAG = "com.kvaster.mobell.MobotixEventService-perm";
 
     private static final String ACTION_TIMEOUT = "com.kvaster.mobell.TIMEOUT";
     private static final String ACTION_RECONNECT = "com.kvaster.mobell.RECONNECT";
@@ -56,6 +57,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private MxpegStreamer streamer;
     private WifiManager.WifiLock wifiLock;
     private PowerManager.WakeLock wakeLock;
+    private PowerManager.WakeLock permanentWakeLock;
 
     private AlarmManager alarmManager;
     private AtomicReference<PendingIntent> currentAlarm = new AtomicReference<>();
@@ -107,11 +109,21 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         ctx.stopService(new Intent(ctx, MobotixEventService.class));
     }
 
+    @SuppressLint("WakelockTimeout")
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key)
     {
         if (AppPreferences.SERVICE_FAST_WIFI.equals(key))
+        {
             lockWifi();
+        }
+        else if (AppPreferences.SERVICE_WAKELOCK.equals(key))
+        {
+            if (prefs.getBoolean(AppPreferences.SERVICE_WAKELOCK, false))
+                permanentWakeLock.acquire();
+            else
+                permanentWakeLock.release();
+        }
     }
 
     @SuppressLint("WakelockTimeout")
@@ -138,6 +150,12 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         wakeLock = ((PowerManager)Objects.requireNonNull(getSystemService(POWER_SERVICE)))
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, LOCK_TAG);
         wakeLock.setReferenceCounted(false);
+
+        permanentWakeLock = ((PowerManager)Objects.requireNonNull(getSystemService(POWER_SERVICE)))
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PERM_LOCK_TAG);
+        permanentWakeLock.setReferenceCounted(false);
+        if (prefs.getBoolean(AppPreferences.SERVICE_WAKELOCK, false))
+            permanentWakeLock.acquire();
 
         streamer = new PrefsAwareMxpegStreamer(
                 this,
@@ -196,7 +214,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 .setOngoing(true)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setPriority(Notification.PRIORITY_MIN)
-                .setCategory(Notification.CATEGORY_SERVICE);
+                .setCategory(Notification.CATEGORY_SERVICE)
+                .setContentText(getResources().getString(R.string.notification_text));
 
         return builder.build();
     }
@@ -249,6 +268,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
         unlockWifi();
         wakeLock.release();
+        permanentWakeLock.release();
 
         streamer.stop();
 
