@@ -52,6 +52,8 @@ public class MainActivity extends Activity
 
         super.onCreate(savedInstanceState);
 
+        MobotixEventService.startServiceIfEnabled(this);
+
         // show activity over locked screen
         Window window = this.getWindow();
         window.addFlags(LayoutParams.FLAG_DISMISS_KEYGUARD);
@@ -61,14 +63,7 @@ public class MainActivity extends Activity
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
 
-        app = new MxpegApp(
-                this,
-                BuildConfig.MOBOTIX_HOST,
-                BuildConfig.MOBOTIX_PORT,
-                BuildConfig.MOBOTIX_LOGIN,
-                BuildConfig.MOBOTIX_PASS,
-                displayMetrics
-        );
+        app = new MxpegApp(this, displayMetrics);
         view = new GlView(app, this, displayMetrics);
 
         FrameLayout layout = new FrameLayout(this);
@@ -101,6 +96,8 @@ public class MainActivity extends Activity
         try
         {
             super.onStart();
+
+            MobotixEventService.startServiceIfEnabled(this);
 
             Intent service = new Intent(this, MobotixEventService.class);
             bindService(service, connection, BIND_AUTO_CREATE);

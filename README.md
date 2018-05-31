@@ -1,7 +1,5 @@
 # MoBell
 
-<img src="Logo/horizontal.png" width="60%" height="60%" />
-
 Android intercom (client) for mobotix T24/T25 cameras
 
 The goal of this project is to create intercom software running on Android and using Mobotix's eventstream protocol.

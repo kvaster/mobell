@@ -14,8 +14,6 @@ public class OnBootReceiver extends BroadcastReceiver
     @Override
     public void onReceive(Context context, Intent intent)
     {
-        // start background service only if requested via preferences
-        if (AndroidUtils.getSharedPreferences(context).getBoolean(AppPreferences.SERVICE_BACKGROUND, false))
-            MobotixEventService.startService(context, true);
+        MobotixEventService.startServiceIfEnabled(context);
     }
 }

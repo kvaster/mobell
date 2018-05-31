@@ -90,6 +90,12 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         return binder;
     }
 
+    public static void startServiceIfEnabled(Context ctx)
+    {
+        if (AndroidUtils.getSharedPreferences(ctx).getBoolean(AppPreferences.SERVICE_BACKGROUND, false))
+            startService(ctx, true);
+    }
+
     public static void startService(Context ctx)
     {
         startService(ctx, false);
@@ -212,7 +218,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, chid);
         builder.setContentIntent(contentIntent)
                 .setOngoing(true)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_notification)
                 .setPriority(Notification.PRIORITY_MIN)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .setContentText(getResources().getString(R.string.notification_text));

@@ -58,7 +58,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private final AudioManager audioManager;
     private MediaPlayer mediaPlayer;
 
-    public MxpegApp(Context ctx, String host, int port, String login, String password, DisplayMetrics displayMetrics)
+    public MxpegApp(Context ctx, DisplayMetrics displayMetrics)
     {
         this.ctx = ctx;
         this.prefs = AndroidUtils.getSharedPreferences(ctx);
@@ -169,9 +169,6 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                 mediaPlayer.setLooping(true);
                 mediaPlayer.prepare();
                 mediaPlayer.start();
-                {
-                }
-
             }
         }
         catch (Exception e)
