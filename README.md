@@ -9,17 +9,6 @@ Also intercom should operate without internet.
 
 Unfortunatelly eventstream protocol is not documented and can be used only via reverse engineering.
 
-# Compile and run
-Since there is no UI currently in project, you should provide host of your mobotix camera
-and credentials. Currently this is done via local.properties file (it is not under git control).
-You should add following lines to your local.properties file:
-
-`
-mobotix.host="<mobotix_ip_or_name>"
-mobotix.login="<login>"
-mobotix.pass="<password>"
-`
-
 # TODO
 
 - [x] Simple streaming

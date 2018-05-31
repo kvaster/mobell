@@ -19,39 +19,6 @@ android {
         }
     }
     buildTypes {
-        def host = null
-        def login = null
-        def pass = null
-        def port = null
-
-        if (project.rootProject.file('local.properties').exists()) {
-            def propFile = new File('local.properties')
-            if (propFile.canRead()) {
-                Properties props = new Properties()
-                props.load(new FileInputStream(propFile))
-                host = props.getProperty('mobotix.host')
-                login = props.getProperty('mobotix.login')
-                pass = props.getProperty('mobotix.pass')
-                port = props.getProperty('mobotix.port')
-            }
-        }
-
-        if (!host)
-            throw new GradleException('No mobotix.host defined in local.properties')
-        if (!login)
-            throw new GradleException('No mobotix.login defined in local.properties')
-        if (!pass)
-            throw new GradleException('No mobotix.pass defined in local.properties')
-        if (!port)
-            port = '80'
-
-        buildTypes.each {
-            it.buildConfigField 'String', 'MOBOTIX_HOST', host
-            it.buildConfigField 'String', 'MOBOTIX_LOGIN', login
-            it.buildConfigField 'String', 'MOBOTIX_PASS', pass
-            it.buildConfigField 'int', 'MOBOTIX_PORT', port
-        }
-
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
