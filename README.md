@@ -19,7 +19,7 @@ Unfortunatelly eventstream protocol is not documented and can be used only via r
 - [x] Process ring events
 - [x] Open door
 - [x] Nice UI
-- [ ] Working preferences
+- [x] Working preferences
 - [ ] Nice notification icons
 
 # Should I buy mobotix door stations ?
