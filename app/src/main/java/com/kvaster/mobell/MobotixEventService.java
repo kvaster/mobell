@@ -44,7 +44,6 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private static final String WIFI_TAG = "com.kvaster.mobell.MobotixEventService-wifi";
     private static final String WAKE_TASK_TAG = "com.kvaster.mobell.MobotixEventService-wake-task";
-    private static final String WAKE_BACKGROUND_TAG = "com.kvaster.mobell.MobotixEventService-wake-bg";
     private static final String WAKE_CALL_TAG = "com.kvaster.mobell.MobotixEventService-wake-call";
 
     private static final String ACTION_TIMEOUT = "com.kvaster.mobell.TIMEOUT";
@@ -59,7 +58,6 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private MxpegStreamer streamer;
     private WifiManager.WifiLock wifiLock;
     private PowerManager.WakeLock taskWakeLock;
-    private PowerManager.WakeLock backgroundWakeLock;
     private PowerManager.WakeLock callWakeLock;
 
     private AlarmManager alarmManager;
@@ -126,13 +124,6 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         {
             lockWifi();
         }
-        else if (AppPreferences.SERVICE_WAKELOCK.equals(key))
-        {
-            if (prefs.getBoolean(AppPreferences.SERVICE_WAKELOCK, false))
-                backgroundWakeLock.acquire();
-            else
-                backgroundWakeLock.release();
-        }
     }
 
     @SuppressLint("WakelockTimeout")
@@ -160,16 +151,12 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_TASK_TAG);
         taskWakeLock.setReferenceCounted(false);
 
-        backgroundWakeLock = ((PowerManager)Objects.requireNonNull(getSystemService(POWER_SERVICE)))
-                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_BACKGROUND_TAG);
-        backgroundWakeLock.setReferenceCounted(false);
-        if (prefs.getBoolean(AppPreferences.SERVICE_WAKELOCK, false))
-            backgroundWakeLock.acquire();
-
+        // We need to use FULL_WAKE_LOCK for older (pre 8.x) devices like huawei media pad with 7.0 on board.
+        //noinspection deprecation
         callWakeLock = ((PowerManager) Objects.requireNonNull(getSystemService(POWER_SERVICE)))
-                .newWakeLock(PowerManager.FULL_WAKE_LOCK |
-                        PowerManager.ACQUIRE_CAUSES_WAKEUP |
-                        PowerManager.ON_AFTER_RELEASE, WAKE_CALL_TAG);
+                .newWakeLock(PowerManager.FULL_WAKE_LOCK
+                        | PowerManager.ACQUIRE_CAUSES_WAKEUP
+                        | PowerManager.ON_AFTER_RELEASE, WAKE_CALL_TAG);
         callWakeLock.setReferenceCounted(false);
 
         streamer = new PrefsAwareMxpegStreamer(
@@ -283,7 +270,6 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
         unlockWifi();
         taskWakeLock.release();
-        backgroundWakeLock.release();
         callWakeLock.release();
 
         streamer.stop();
@@ -426,10 +412,10 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 if (changeCallStatus(CallStatus.UNACCEPTED))
                 {
                     // only for test purposes
-                    streamer.sendCmd("bell_pong");
+//                    streamer.sendCmd("bell_pong");
 
                     Intent i = new Intent(this, MainActivity.class);
-                    i.setAction(Intent.ACTION_VIEW);
+                    i.setAction(Intent.ACTION_MAIN);
                     i.addCategory(Intent.CATEGORY_LAUNCHER);
                     i.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                     startActivity(i);
@@ -460,17 +446,17 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                     events.remove(id);
             }
 
-            if ("ping".equals(event.opt("method")))
-                streamer.sendCmd("pong");
-
-            if ("awake".equals(event.opt("method")))
-            {
-                Intent i = new Intent(this, MainActivity.class);
-                i.setAction(Intent.ACTION_MAIN);
-                i.addCategory(Intent.CATEGORY_LAUNCHER);
-                startActivity(i);
-                streamer.sendCmd("awake");
-            }
+//            if ("ping".equals(event.opt("method")))
+//                streamer.sendCmd("pong");
+//
+//            if ("awake".equals(event.opt("method")))
+//            {
+//                Intent i = new Intent(this, MainActivity.class);
+//                i.setAction(Intent.ACTION_MAIN);
+//                i.addCategory(Intent.CATEGORY_LAUNCHER);
+//                startActivity(i);
+//                streamer.sendCmd("awake");
+//            }
 
             scheduleTimeout();
         }

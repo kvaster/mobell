@@ -50,11 +50,4 @@
             android:defaultValue="false"
     />
 
-    <SwitchPreference
-            android:key="service_wakelock"
-            android:title="@string/p_wakelock"
-            android:summary="@string/p_wakelock_hint"
-            android:defaultValue="false"
-    />
-
 </PreferenceScreen>

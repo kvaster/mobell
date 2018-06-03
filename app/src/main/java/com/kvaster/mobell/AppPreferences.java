@@ -9,5 +9,4 @@ public class AppPreferences
     public static final String RINGTONE = "ringtone";
     public static final String SERVICE_BACKGROUND = "service_background";
     public static final String SERVICE_FAST_WIFI = "service_fast_wifi";
-    public static final String SERVICE_WAKELOCK = "service_wakelock";
 }
