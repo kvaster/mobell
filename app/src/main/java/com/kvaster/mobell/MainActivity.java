@@ -13,7 +13,6 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.DisplayMetrics;
 import android.util.Log;
-import android.view.Window;
 import android.view.WindowManager.LayoutParams;
 import android.widget.FrameLayout;
 
@@ -55,10 +54,9 @@ public class MainActivity extends Activity
         MobotixEventService.startServiceIfEnabled(this);
 
         // show activity over locked screen
-        Window window = this.getWindow();
-        window.addFlags(LayoutParams.FLAG_DISMISS_KEYGUARD);
-        window.addFlags(LayoutParams.FLAG_SHOW_WHEN_LOCKED);
-        window.addFlags(LayoutParams.FLAG_TURN_SCREEN_ON);
+        getWindow().addFlags(LayoutParams.FLAG_DISMISS_KEYGUARD
+                | LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                | LayoutParams.FLAG_TURN_SCREEN_ON);
 
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);

@@ -18,7 +18,7 @@ Unfortunatelly eventstream protocol is not documented and can be used only via r
 - [x] Open door
 - [x] Nice UI
 - [x] Working preferences
-- [ ] Nice notification icons
+- [x] Nice notification icons
 
 # Should I buy mobotix door stations ?
 

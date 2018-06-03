@@ -33,8 +33,6 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private boolean needResume;
     private final MxpegStreamer streamer;
 
-    private boolean initialized;
-
     private boolean started;
     private boolean recordingEnabled;
     private boolean recordingRequested;
@@ -42,7 +40,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
     private volatile boolean volumeEnabled;
 
-    private CallService callService;
+    private final DefferedCallService defferedCallService = new DefferedCallService();
+    private CallService callService = defferedCallService;
 
     private final GestureDetector gestureDetector;
     private final ScaleGestureDetector scaleGestureDetector;
@@ -198,14 +197,12 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     public synchronized void onServiceBind(CallService service)
     {
         callService = service;
-
-        if (initialized)
-            callService.addListener(this);
+        defferedCallService.perform(service);
     }
 
-    public void onServiceUnbind()
+    public synchronized void onServiceUnbind()
     {
-        // do nothing
+        callService = defferedCallService;
     }
 
     public void resetSize()
@@ -264,12 +261,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
         streamer.start();
 
-        synchronized (this)
-        {
-            initialized = true;
-            if (callService != null)
-                callService.addListener(this);
-        }
+        callService.addListener(this);
     }
 
     @Override
@@ -320,7 +312,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     @Override
     public void canvasCreated(int width, int height, int dpi, float density)
     {
-        // do nothing
+        MxpegNative.canvasSizeChanged(width, height);
     }
 
     @Override
@@ -765,6 +757,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private Bitmap[] iconsBmps;
     private int[] iconsTexs;
 
+    private boolean needUnbind = false;
     private int[] vbo = new int[1];
     private int program;
     private int vertAttr;
@@ -908,13 +901,19 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         scaleAttr = GLES20.glGetAttribLocation(program, "p_scale");
         posAttr = GLES20.glGetAttribLocation(program, "p_pos");
         colorAttr = GLES20.glGetUniformLocation(program, "p_color");
+
+        needUnbind = true;
     }
 
     private void unbindResources()
     {
-        GLES20.glDeleteTextures(iconsTexs.length, iconsTexs, 0);
-        GLES20.glDeleteProgram(program);
-        GLES20.glDeleteBuffers(1, vbo, 0);
+        if (needUnbind)
+        {
+            GLES20.glDeleteTextures(iconsTexs.length, iconsTexs, 0);
+            GLES20.glDeleteProgram(program);
+            GLES20.glDeleteBuffers(1, vbo, 0);
+            needUnbind = false;
+        }
     }
 
     private static int compileShader(String source, int type)

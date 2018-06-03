@@ -42,8 +42,10 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private static final long RECONNECT_MIN_DELAY = TimeUnit.SECONDS.toMillis(1);
     private static final long RECONNECT_MAX_DELAY = TimeUnit.SECONDS.toMillis(60);
 
-    private static final String LOCK_TAG = "com.kvaster.mobell.MobotixEventService-fast";
-    private static final String PERM_LOCK_TAG = "com.kvaster.mobell.MobotixEventService-perm";
+    private static final String WIFI_TAG = "com.kvaster.mobell.MobotixEventService-wifi";
+    private static final String WAKE_TASK_TAG = "com.kvaster.mobell.MobotixEventService-wake-task";
+    private static final String WAKE_BACKGROUND_TAG = "com.kvaster.mobell.MobotixEventService-wake-bg";
+    private static final String WAKE_CALL_TAG = "com.kvaster.mobell.MobotixEventService-wake-call";
 
     private static final String ACTION_TIMEOUT = "com.kvaster.mobell.TIMEOUT";
     private static final String ACTION_RECONNECT = "com.kvaster.mobell.RECONNECT";
@@ -56,8 +58,9 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private MxpegStreamer streamer;
     private WifiManager.WifiLock wifiLock;
-    private PowerManager.WakeLock wakeLock;
-    private PowerManager.WakeLock permanentWakeLock;
+    private PowerManager.WakeLock taskWakeLock;
+    private PowerManager.WakeLock backgroundWakeLock;
+    private PowerManager.WakeLock callWakeLock;
 
     private AlarmManager alarmManager;
     private AtomicReference<PendingIntent> currentAlarm = new AtomicReference<>();
@@ -126,9 +129,9 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         else if (AppPreferences.SERVICE_WAKELOCK.equals(key))
         {
             if (prefs.getBoolean(AppPreferences.SERVICE_WAKELOCK, false))
-                permanentWakeLock.acquire();
+                backgroundWakeLock.acquire();
             else
-                permanentWakeLock.release();
+                backgroundWakeLock.release();
         }
     }
 
@@ -153,15 +156,21 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         lockWifi();
 
         // we will use lock only during connection initiation
-        wakeLock = ((PowerManager)Objects.requireNonNull(getSystemService(POWER_SERVICE)))
-                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, LOCK_TAG);
-        wakeLock.setReferenceCounted(false);
+        taskWakeLock = ((PowerManager)Objects.requireNonNull(getSystemService(POWER_SERVICE)))
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_TASK_TAG);
+        taskWakeLock.setReferenceCounted(false);
 
-        permanentWakeLock = ((PowerManager)Objects.requireNonNull(getSystemService(POWER_SERVICE)))
-                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, PERM_LOCK_TAG);
-        permanentWakeLock.setReferenceCounted(false);
+        backgroundWakeLock = ((PowerManager)Objects.requireNonNull(getSystemService(POWER_SERVICE)))
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_BACKGROUND_TAG);
+        backgroundWakeLock.setReferenceCounted(false);
         if (prefs.getBoolean(AppPreferences.SERVICE_WAKELOCK, false))
-            permanentWakeLock.acquire();
+            backgroundWakeLock.acquire();
+
+        callWakeLock = ((PowerManager) Objects.requireNonNull(getSystemService(POWER_SERVICE)))
+                .newWakeLock(PowerManager.FULL_WAKE_LOCK |
+                        PowerManager.ACQUIRE_CAUSES_WAKEUP |
+                        PowerManager.ON_AFTER_RELEASE, WAKE_CALL_TAG);
+        callWakeLock.setReferenceCounted(false);
 
         streamer = new PrefsAwareMxpegStreamer(
                 this,
@@ -184,7 +193,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         boolean highPerf = prefs.getBoolean(AppPreferences.SERVICE_FAST_WIFI, false);
 
         wifiLock = ((WifiManager)Objects.requireNonNull(getApplicationContext().getSystemService(WIFI_SERVICE)))
-                .createWifiLock(highPerf ? WifiManager.WIFI_MODE_FULL_HIGH_PERF : WifiManager.WIFI_MODE_FULL, LOCK_TAG);
+                .createWifiLock(highPerf ? WifiManager.WIFI_MODE_FULL_HIGH_PERF : WifiManager.WIFI_MODE_FULL, WIFI_TAG);
         wifiLock.setReferenceCounted(false);
         wifiLock.acquire();
     }
@@ -273,8 +282,9 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         cancelScheduledAction();
 
         unlockWifi();
-        wakeLock.release();
-        permanentWakeLock.release();
+        taskWakeLock.release();
+        backgroundWakeLock.release();
+        callWakeLock.release();
 
         streamer.stop();
 
@@ -295,13 +305,19 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             if (ACTION_TIMEOUT.equals(action))
             {
                 Log.i(TAG, "MBE: timeout occured");
-                wakeLock.acquire(1000);
+                taskWakeLock.acquire(1000);
                 streamer.sendCmd("list_addressees");
+
+                synchronized (this)
+                {
+                    if (callStatus == CallStatus.UNACCEPTED)
+                        changeCallStatus(CallStatus.IDLE);
+                }
             }
             else if (ACTION_RECONNECT.equals(action))
             {
                 Log.i(TAG, "MBE: forcing reconnect");
-                wakeLock.acquire(1000); // 1s - for reconnect attempt
+                taskWakeLock.acquire(1000); // 1s - for reconnect attempt
                 scheduleReconnect();
                 streamer.forceReconnectIfNeed();
             }
@@ -407,12 +423,17 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
             if (isRing)
             {
-                changeCallStatus(CallStatus.UNACCEPTED);
+                if (changeCallStatus(CallStatus.UNACCEPTED))
+                {
+                    // only for test purposes
+                    streamer.sendCmd("bell_pong");
 
-                Intent i = new Intent(this, MainActivity.class);
-                i.setAction(Intent.ACTION_MAIN);
-                i.addCategory(Intent.CATEGORY_LAUNCHER);
-                startActivity(i);
+                    Intent i = new Intent(this, MainActivity.class);
+                    i.setAction(Intent.ACTION_VIEW);
+                    i.addCategory(Intent.CATEGORY_LAUNCHER);
+                    i.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    startActivity(i);
+                }
             }
             else
             {
@@ -465,14 +486,20 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private Collection<Listener> listeners = new ArrayList<>();
     private CallStatus callStatus = CallStatus.DISCONNECTED;
 
-    private synchronized void changeCallStatus(CallStatus status)
+    private synchronized boolean changeCallStatus(CallStatus status)
     {
-        if (callStatus != status)
-        {
-            for (Listener l : listeners)
-                l.onCallStatus(status);
-            callStatus = status;
-        }
+        if (callStatus == status)
+            return false;
+
+        if (status == CallStatus.UNACCEPTED)
+            callWakeLock.acquire();
+        else
+            callWakeLock.release();
+
+        for (Listener l : listeners)
+            l.onCallStatus(status);
+        callStatus = status;
+        return true;
     }
 
     @Override

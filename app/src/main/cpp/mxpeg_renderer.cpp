@@ -61,6 +61,7 @@ MxpegRenderer::MxpegRenderer()
     audioOutputMix = nullptr;
     audioPlayerObj = nullptr;
     audioPlayer = nullptr;
+    audioBufferQueue = nullptr;
 
     resume();
 }
