@@ -1,62 +1,91 @@
 #!/bin/bash
 
 BASEDIR=$(pwd)
-TOOLCHAIN_PREFIX=/opt/android-sdk-update-manager/ndk-bundle/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64
-PLATFORM_PREFIX=/opt/android-sdk-update-manager/ndk-bundle/platforms/android-27/arch-arm/
-SYSROOT=/opt/android-sdk-update-manager/ndk-bundle/sysroot
-#CFLAGS='-O3 -Wall -pipe -std=c99 -ffast-math -fstrict-aliasing -Werror=strict-aliasing -Wno-psabi -Wa,--noexecstack -DANDROID'
-#LDFLAGS='-Wl,-z,relro -Wl,-z,now -pie -nostdlib'
-#CFLAGS='-O3 -Wall -pipe -std=c99 -ffast-math -fstrict-aliasing -Werror=strict-aliasing -Wno-psabi -Wa,--noexecstack -DANDROID'
-#LDFLAGS='-Wl,-rpath-link=${PLATFORM_PREFIX}/usr/lib -L${PLATFORM_PREFIX}/usr/lib -nostdlib -lc -lm -ldl -llog'
-CFLAGS='-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fno-strict-overflow -fstack-protector-all -DANDROID'
-LDFLAGS='-Wl,-z,relro'
 
-./configure \
---prefix=$(pwd)/android/arm \
---target-os=linux \
---cross-prefix=${TOOLCHAIN_PREFIX}/bin/arm-linux-androideabi- \
---arch=arm \
---cpu=armv7-a \
---enable-runtime-cpudetect \
---sysroot=${PLATFORM_PREFIX} \
---enable-pic \
---disable-debug \
---disable-ffserver \
---disable-stripping \
---disable-version3 \
---enable-hardcoded-tables \
---disable-ffplay \
---disable-ffprobe \
---disable-gpl \
---disable-doc \
---enable-shared \
---enable-static \
---extra-cflags="-I${SYSROOT}/usr/include -I${SYSROOT}/usr/include/arm-linux-androideabi $CFLAGS" \
---extra-ldflags="-L${TOOLCHAIN_PREFIX}/lib $LDFLAGS" \
---pkg-config="./ffmpeg-pkg-config" \
---disable-everything \
---enable-decoder=pcm_alaw \
---enable-decoder=mxpeg \
---enable-demuxer=mxg \
---disable-avformat \
---disable-avdevice \
---disable-swscale \
---disable-swresample \
---disable-postproc \
---disable-avfilter \
---disable-network \
---disable-pixelutils
+target=$1
+if [[ "${target}" == "arm" ]]; then
+ARCH=arm
+CPU_ARCH=arm
+CPU=armv7-a
+TOOLCHAIN=arm-linux-androideabi
+NDK_ABI=arm-linux-androideabi
+PLATFORM=arm
 
-#--enable-static
+elif [[ "${target}" == "arm64" ]]; then
+ARCH=arm64
+CPU_ARCH=arm64
+TOOLCHAIN=aarch64-linux-android
+NDK_ABI=aarch64-linux-android
+PLATFORM=arm64
 
-#  --disable-dct            disable DCT code
-#  --disable-dwt            disable DWT code
-#  --disable-error-resilience disable error resilience code
-#  --disable-lsp            disable LSP code
-#  --disable-lzo            disable LZO decoder code
-#  --disable-mdct           disable MDCT code
-#  --disable-rdft           disable RDFT code
-#  --disable-fft            disable FFT code
-#  --disable-faan           disable floating point AAN (I)DCT code
-#  --disable-pixelutils     disable pixel utils in libavutil
+elif [[ "${target}" == "x86" ]]; then
+ARCH=i686
+CPU_ARCH=i686
+TOOLCHAIN=x86
+NDK_ABI=i686-linux-android
+PLATFORM=x86
+
+elif [[ "${target}" == "x86_64" ]]; then
+ARCH=x86-64
+CPU_ARCH=x86_64
+TOOLCHAIN=x86_64
+NDK_ABI=x86_64-linux-android
+PLATFORM=x86_64
+
+else
+echo "Wrong targer: ${target}"
+exit 2
+fi
+
+TOOLCHAIN_PREFIX=${ANDROID_HOME}/ndk-bundle/toolchains/${TOOLCHAIN}-4.9/prebuilt/linux-x86_64
+CROSS_PREFIX=${TOOLCHAIN_PREFIX}/bin/${NDK_ABI}-
+
+#TOOLCHAIN_PREFIX=${ANDROID_HOME}/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64
+#CROSS_PREFIX=${TOOLCHAIN_PREFIX}/bin/
+
+PLATFORM_PREFIX=${ANDROID_HOME}/ndk-bundle/platforms/android-27/arch-${PLATFORM}/
+SYSROOT=${ANDROID_HOME}/ndk-bundle/sysroot
+CFLAGS='-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fno-strict-overflow -fstack-protector-all -DANDROID'
+LDFLAGS='-Wl,-z,relro -Wl,-z,now'
+
+CFG="./configure"
+CFG="$CFG --prefix=$(pwd)/android/${ARCH}"
+CFG="$CFG --target-os=linux"
+#CFG="$CFG --toolchain=clang-usan"
+CFG="$CFG --cross-prefix=${CROSS_PREFIX}"
+CFG="$CFG --arch=${CPU_ARCH}"
+if [ ! -z "${CPU}" ]; then
+  CFG="$CFG --cpu=${CPU}"
+fi
+CFG="$CFG --enable-runtime-cpudetect"
+CFG="$CFG --sysroot=${PLATFORM_PREFIX}"
+CFG="$CFG --enable-pic"
+CFG="$CFG --disable-debug"
+CFG="$CFG --disable-ffserver"
+CFG="$CFG --disable-stripping"
+CFG="$CFG --disable-version3"
+CFG="$CFG --enable-hardcoded-tables"
+CFG="$CFG --disable-ffplay"
+CFG="$CFG --disable-ffprobe"
+CFG="$CFG --disable-gpl"
+CFG="$CFG --disable-doc"
+CFG="$CFG --enable-shared"
+CFG="$CFG --disable-static"
+CFG="$CFG --extra-cflags=\"-I${SYSROOT}/usr/include -I${SYSROOT}/usr/include/${NDK_ABI} $CFLAGS\""
+CFG="$CFG --extra-ldflags=\"-L${TOOLCHAIN_PREFIX}/lib $LDFLAGS\""
+CFG="$CFG --pkg-config=./ffmpeg-pkg-config"
+CFG="$CFG --disable-everything"
+CFG="$CFG --enable-decoder=pcm_alaw"
+CFG="$CFG --enable-decoder=mxpeg"
+CFG="$CFG --enable-demuxer=mxg"
+CFG="$CFG --disable-avformat"
+CFG="$CFG --disable-avdevice"
+CFG="$CFG --disable-swscale"
+CFG="$CFG --disable-swresample"
+CFG="$CFG --disable-postproc"
+CFG="$CFG --disable-avfilter"
+CFG="$CFG --disable-network"
+CFG="$CFG --disable-pixelutils"
+
+sh -c "${CFG}"
 
