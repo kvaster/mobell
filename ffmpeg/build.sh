@@ -3,6 +3,7 @@
 BASEDIR=$(pwd)
 
 target=$1
+
 if [[ "${target}" == "arm" ]]; then
 ARCH=arm
 CPU_ARCH=arm
@@ -37,31 +38,42 @@ echo "Wrong targer: ${target}"
 exit 2
 fi
 
-TOOLCHAIN_PREFIX=${ANDROID_HOME}/ndk-bundle/toolchains/${TOOLCHAIN}-4.9/prebuilt/linux-x86_64
+ANDROID_NDK=${ANDROID_HOME}/ndk-bundle
+
+#ANDROID_PLATFORM=27
+ANDROID_PLATFORM=21
+
+#TOOLCHAIN_PREFIX=${ANDROID_HOME}/ndk-bundle/toolchains/${TOOLCHAIN}-4.9/prebuilt/linux-x86_64
+#CROSS_PREFIX=${TOOLCHAIN_PREFIX}/bin/${NDK_ABI}-
+
+TOOLCHAIN_PREFIX=${ANDROID_HOME}/toolchain-${PLATFORM}
 CROSS_PREFIX=${TOOLCHAIN_PREFIX}/bin/${NDK_ABI}-
 
-#TOOLCHAIN_PREFIX=${ANDROID_HOME}/ndk-bundle/toolchains/llvm/prebuilt/linux-x86_64
-#CROSS_PREFIX=${TOOLCHAIN_PREFIX}/bin/
+PLATFORM_PREFIX=${ANDROID_HOME}/ndk-bundle/platforms/android-${ANDROID_PLATFORM}/arch-${PLATFORM}/
+SYSROOT=${TOOLCHAIN_PREFIX}/sysroot
+CFLAGS='-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fno-strict-overflow -fstack-protector-all -DANDROIDi -fPIC -fsanitize-trap=undefined'
+CXXFLASG='-fPIC -fsanitize-trap=undefined'
+LDFLAGS='-pie -lc -lm -ldl -llog -Wl,-z,relro -Wl,-z,now -fPIC'
 
-PLATFORM_PREFIX=${ANDROID_HOME}/ndk-bundle/platforms/android-27/arch-${PLATFORM}/
-SYSROOT=${ANDROID_HOME}/ndk-bundle/sysroot
-CFLAGS='-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fno-strict-overflow -fstack-protector-all -DANDROID'
-LDFLAGS='-Wl,-z,relro -Wl,-z,now'
+python ${ANDROID_NDK}/build/tools/make_standalone_toolchain.py \
+    --arch ${PLATFORM} \
+    --api ${ANDROID_PLATFORM} \
+    --stl libc++ \
+    --install-dir=${TOOLCHAIN_PREFIX}
 
 CFG="./configure"
 CFG="$CFG --prefix=$(pwd)/android/${ARCH}"
 CFG="$CFG --target-os=linux"
-#CFG="$CFG --toolchain=clang-usan"
+CFG="$CFG --toolchain=clang-usan"
 CFG="$CFG --cross-prefix=${CROSS_PREFIX}"
 CFG="$CFG --arch=${CPU_ARCH}"
 if [ ! -z "${CPU}" ]; then
   CFG="$CFG --cpu=${CPU}"
 fi
 CFG="$CFG --enable-runtime-cpudetect"
-CFG="$CFG --sysroot=${PLATFORM_PREFIX}"
+CFG="$CFG --sysroot=${SYSROOT}"
 CFG="$CFG --enable-pic"
 CFG="$CFG --disable-debug"
-CFG="$CFG --disable-ffserver"
 CFG="$CFG --disable-stripping"
 CFG="$CFG --disable-version3"
 CFG="$CFG --enable-hardcoded-tables"
@@ -69,10 +81,12 @@ CFG="$CFG --disable-ffplay"
 CFG="$CFG --disable-ffprobe"
 CFG="$CFG --disable-gpl"
 CFG="$CFG --disable-doc"
-CFG="$CFG --enable-shared"
-CFG="$CFG --disable-static"
-CFG="$CFG --extra-cflags=\"-I${SYSROOT}/usr/include -I${SYSROOT}/usr/include/${NDK_ABI} $CFLAGS\""
-CFG="$CFG --extra-ldflags=\"-L${TOOLCHAIN_PREFIX}/lib $LDFLAGS\""
+CFG="$CFG --disable-shared"
+CFG="$CFG --enable-static"
+CFG="$CFG --extra-cflags=\"$CFLAGS\""
+CFG="$CFG --extra-ldflags=\"$LDFLAGS\""
+CFG="$CFG --extra-cxxflags=\"$CXXFLAGS\""
+CFG="$CFG --extra-libs=\"-lgcc\""
 CFG="$CFG --pkg-config=./ffmpeg-pkg-config"
 CFG="$CFG --disable-everything"
 CFG="$CFG --enable-decoder=pcm_alaw"

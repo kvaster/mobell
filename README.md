@@ -88,7 +88,7 @@ This software uses code of <a href=http://ffmpeg.org>FFmpeg</a> licensed under t
 and its source can be downloaded <a href=https://github.com/ffmpeg/ffmpeg>here</a>.
 
 This project contains compiled versions of FFmpeg libraries.
-Libraries were compiled against following git commit: dc7d5f9f1904faebab73f5de60f2c360c8255333.
+Libraries were compiled against following git commit: d746a2e3cf5cfca91b444e811cbd9bf31e0d1342.
 You can find configure script at ffmpeg/build.sh
 
 # License

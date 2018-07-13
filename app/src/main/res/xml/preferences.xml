@@ -50,4 +50,10 @@
             android:defaultValue="false"
     />
 
+    <Preference
+            android:key="about"
+            android:title="About"
+            android:summary="About this application, license e.t.c."
+    />
+
 </PreferenceScreen>

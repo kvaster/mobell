@@ -25,8 +25,8 @@ public class MxpegNative
 
     static
     {
-        System.loadLibrary("avutil");
-        System.loadLibrary("avcodec");
+        //System.loadLibrary("avutil");
+        //System.loadLibrary("avcodec");
         System.loadLibrary("mobell");
     }
 }
