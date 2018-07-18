@@ -25,6 +25,7 @@ CPU_ARCH=i686
 TOOLCHAIN=x86
 NDK_ABI=i686-linux-android
 PLATFORM=x86
+DISABLE_ASM=true
 
 elif [[ "${target}" == "x86_64" ]]; then
 ARCH=x86-64
@@ -32,6 +33,7 @@ CPU_ARCH=x86_64
 TOOLCHAIN=x86_64
 NDK_ABI=x86_64-linux-android
 PLATFORM=x86_64
+DISABLE_ASM=true
 
 else
 echo "Wrong targer: ${target}"
@@ -69,6 +71,9 @@ CFG="$CFG --cross-prefix=${CROSS_PREFIX}"
 CFG="$CFG --arch=${CPU_ARCH}"
 if [ ! -z "${CPU}" ]; then
   CFG="$CFG --cpu=${CPU}"
+fi
+if [ ! -z "${DISABLE_ASM}" ]; then
+  CFG="$CFG --disable-asm"
 fi
 CFG="$CFG --enable-runtime-cpudetect"
 CFG="$CFG --sysroot=${SYSROOT}"
