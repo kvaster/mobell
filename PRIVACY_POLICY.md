@@ -4,7 +4,7 @@ MoBell is an Open Source application. It is provided at no cost and is intended 
 
 ## Information collection and use
 
-* MoBell does not send any information to any external servers or third partis.
+* MoBell does not send any information to any external servers or third parties.
 * MoBell does not collect any information.
 * MoBell stores all user settings locally and secure.
 * MoBell will use entered credentials to connect to mobotix door stations.
