@@ -42,9 +42,9 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private static final long RECONNECT_MIN_DELAY = TimeUnit.SECONDS.toMillis(1);
     private static final long RECONNECT_MAX_DELAY = TimeUnit.SECONDS.toMillis(60);
 
-    private static final String WIFI_TAG = "com.kvaster.mobell.MobotixEventService-wifi";
-    private static final String WAKE_TASK_TAG = "com.kvaster.mobell.MobotixEventService-wake-task";
-    private static final String WAKE_CALL_TAG = "com.kvaster.mobell.MobotixEventService-wake-call";
+    private static final String WIFI_TAG = "mobell:wifi";
+    private static final String WAKE_TASK_TAG = "mobell:wake-task";
+    private static final String WAKE_CALL_TAG = "mobell:wake-call";
 
     private static final String ACTION_TIMEOUT = "com.kvaster.mobell.TIMEOUT";
     private static final String ACTION_RECONNECT = "com.kvaster.mobell.RECONNECT";
@@ -105,7 +105,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     public static void startService(Context ctx, boolean forceForeground)
     {
         Intent i = new Intent(ctx, MobotixEventService.class);
-        if (forceForeground && Build.VERSION.SDK_INT>=Build.VERSION_CODES.O)
+        if (forceForeground && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             ctx.startForegroundService(i);
         else
             ctx.startService(i);
@@ -472,6 +472,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private Collection<Listener> listeners = new ArrayList<>();
     private CallStatus callStatus = CallStatus.DISCONNECTED;
 
+    @SuppressLint("WakelockTimeout")
     private synchronized boolean changeCallStatus(CallStatus status)
     {
         if (callStatus == status)
