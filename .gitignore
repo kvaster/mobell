@@ -18,4 +18,5 @@
 .externalNativeBuild
 
 /about_page/build
+/app/release
 
