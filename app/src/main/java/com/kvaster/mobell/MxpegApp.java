@@ -97,10 +97,13 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         });
 
         scaleGestureDetector = new ScaleGestureDetector(ctx, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
-            float startPanX;
-            float startPanY;
             float startFocusX;
             float startFocusY;
+            float startScale;
+            float startDeltaX;
+            float startDeltaY;
+            float startRealX;
+            float startRealY;
 
             @Override
             public boolean onScaleBegin(ScaleGestureDetector detector)
@@ -110,8 +113,14 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
                 startFocusX = detector.getFocusX();
                 startFocusY = detector.getFocusY();
-                startPanX = panX;
-                startPanY = panY;
+                startScale = scale;
+
+                startDeltaX = startFocusX - canvasWidth / 2.0f;
+                startDeltaY = startFocusY - canvasHeight / 2.0f;
+
+                startRealX = (panX - startDeltaX) / scale;
+                startRealY = (panY - startDeltaY) / scale;
+
                 return true;
             }
 
@@ -122,8 +131,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                     return false;
 
                 scale = Math.max(0.5f, Math.min(2.0f, scale * detector.getScaleFactor()));
-                panX = startPanX + detector.getFocusX() - startFocusX;
-                panY = startPanY + detector.getFocusY() - startFocusY;
+                panX = startRealX * scale + startDeltaX + (detector.getFocusX() - startFocusX);
+                panY = startRealY * scale + startDeltaY + (detector.getFocusY() - startFocusY);
                 return true;
             }
         });
