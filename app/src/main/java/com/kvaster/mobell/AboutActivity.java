@@ -17,7 +17,7 @@ public class AboutActivity extends Activity
                 .isRTL(false)
                 .setImage(R.drawable.ic_launcher_foreground)
                 .addItem(new Element()
-                        .setTitle(getString(R.string.about_version, getString(R.string.app_version))))
+                        .setTitle(getString(R.string.about_version, BuildConfig.VERSION_NAME)))
                 .addPlayStore("com.kvaster.mobell")
                 .addGitHub("kvaster/mobell")
                 .create();
