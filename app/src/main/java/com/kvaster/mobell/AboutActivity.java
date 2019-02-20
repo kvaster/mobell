@@ -1,10 +1,10 @@
 package com.kvaster.mobell;
 
-import android.os.Bundle;
 import android.app.Activity;
-import android.text.Html;
-import android.text.method.LinkMovementMethod;
-import android.widget.TextView;
+import android.os.Bundle;
+import android.view.View;
+import mehdi.sakout.aboutpage.AboutPage;
+import mehdi.sakout.aboutpage.Element;
 
 public class AboutActivity extends Activity
 {
@@ -12,10 +12,16 @@ public class AboutActivity extends Activity
     protected void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_about);
 
-        TextView v = findViewById(R.id.aboutview);
-        v.setMovementMethod(LinkMovementMethod.getInstance());
-        v.setText(Html.fromHtml(getString(R.string.about_text)));
+        View aboutPage = new AboutPage(this)
+                .isRTL(false)
+                .setImage(R.drawable.ic_launcher_foreground)
+                .addItem(new Element()
+                        .setTitle(getString(R.string.about_version, getString(R.string.app_version))))
+                .addPlayStore("com.kvaster.mobell")
+                .addGitHub("kvaster/mobell")
+                .create();
+
+        setContentView(aboutPage);
     }
 }

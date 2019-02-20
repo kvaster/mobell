@@ -39,8 +39,7 @@
         <activity
                 android:name=".AboutActivity"
                 android:label="@string/title_activity_about"
-                android:theme="@style/AboutTheme">
-        </activity>
+                android:theme="@style/SettingsTheme"/>
 
         <service
                 android:name=".MobotixEventService"

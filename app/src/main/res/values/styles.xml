@@ -9,8 +9,4 @@
 
     <style name="SettingsTheme" parent="android:Theme.DeviceDefault.Light">
     </style>
-
-    <style name="AboutTheme" parent="android:Theme.DeviceDefault.Light">
-    </style>
-
 </resources>
