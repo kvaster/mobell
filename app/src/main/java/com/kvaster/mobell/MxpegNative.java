@@ -15,7 +15,8 @@ public class MxpegNative
 
     public static native void onStreamStart();
     public static native void onStreamStop();
-    public static native boolean onStreamVideoPacket(ByteBuffer packet, int size);
+    // 0 - OK, 1 - we have video frame, -1 - err
+    public static native int onStreamVideoPacket(ByteBuffer packet, int size);
     public static native boolean onStreamAudioPacket(ByteBuffer packet, int size);
 
     public static native void canvasSizeChanged(int width, int height);

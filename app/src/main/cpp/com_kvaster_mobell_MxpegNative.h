@@ -76,7 +76,7 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamStop
  * Method:    onStreamVideoPacket
  * Signature: (Ljava/nio/ByteBuffer;I)Z
  */
-JNIEXPORT jboolean JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamVideoPacket
+JNIEXPORT jint JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamVideoPacket
   (JNIEnv *, jclass, jobject, jint);
 
 /*

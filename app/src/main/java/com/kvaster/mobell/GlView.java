@@ -19,15 +19,14 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
     private boolean suspended = false;
     private boolean paused = false;
 
-    private static final long TARGET_FPS = 60;
-    private long drawTimestamp = System.nanoTime();
-
     private final DisplayMetrics displayMetrics;
     private final GlApp app;
 
     public GlView(GlApp app, Activity activity, DisplayMetrics displayMetrics)
     {
         super(activity);
+
+        app.setGlView(this);
 
         this.app = app;
         this.displayMetrics = displayMetrics;
@@ -40,7 +39,7 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
         setRenderer(this);
         // Pop up for canvas. Now canvas is rendered on top of background.
         setZOrderOnTop(true);
-        setRenderMode(RENDERMODE_CONTINUOUSLY);
+        setRenderMode(RENDERMODE_WHEN_DIRTY);
     }
 
     public void stop()
@@ -204,18 +203,8 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
     {
         try
         {
-            long now = System.nanoTime();
-            long frameTime = TimeUnit.SECONDS.toNanos(1) / TARGET_FPS;
-            long dt = now - drawTimestamp;
-            if (dt >= frameTime)
-            {
-                drawTimestamp = now - (dt - frameTime);
-
-                // processEvents();
-
-                app.update();
-                app.draw();
-            }
+            app.update();
+            app.draw();
         }
         catch (Throwable t)
         {

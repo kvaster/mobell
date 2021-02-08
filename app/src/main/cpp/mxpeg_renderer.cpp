@@ -314,7 +314,7 @@ void MxpegRenderer::onStreamStop()
     }
 }
 
-bool MxpegRenderer::onStreamVideoPacket(uint8_t* data, size_t size)
+int MxpegRenderer::onStreamVideoPacket(uint8_t* data, size_t size)
 {
     AVPacket pkt;
     av_init_packet(&pkt);
@@ -352,7 +352,7 @@ bool MxpegRenderer::onStreamVideoPacket(uint8_t* data, size_t size)
     if (got)
         gotVideo = true;
 
-    return ok;
+    return ok ? (got ? 1 : 0) : -1;
 }
 
 void MxpegRenderer::update()

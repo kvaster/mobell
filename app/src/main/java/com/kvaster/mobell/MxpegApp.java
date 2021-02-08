@@ -8,20 +8,17 @@ import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
-import android.media.RingtoneManager;
 import android.net.Uri;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.SoundEffectConstants;
 import org.json.JSONObject;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -58,6 +55,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private final AudioManager audioManager;
     private MediaPlayer mediaPlayer;
 
+    private GlView view;
+
     public MxpegApp(Context ctx, DisplayMetrics displayMetrics)
     {
         this.ctx = ctx;
@@ -81,6 +80,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                 if (scaleGestureDetector.isInProgress() || actionGestureInProgress)
                     return false;
 
+                view.requestRender();
+
                 panX -= distanceX;
                 panY -= distanceY;
                 return true;
@@ -91,6 +92,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
             {
                 if (scaleGestureDetector.isInProgress() || actionGestureInProgress)
                     return false;
+
+                view.requestRender();
 
                 resetSize();
                 return true;
@@ -122,6 +125,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                 startRealX = (panX - startDeltaX) / scale;
                 startRealY = (panY - startDeltaY) / scale;
 
+                view.requestRender();
+
                 return true;
             }
 
@@ -134,6 +139,9 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                 scale = Math.max(0.5f, Math.min(2.0f, scale * detector.getScaleFactor()));
                 panX = startRealX * scale + startDeltaX + (detector.getFocusX() - startFocusX);
                 panY = startRealY * scale + startDeltaY + (detector.getFocusY() - startFocusY);
+
+                view.requestRender();
+
                 return true;
             }
         });
@@ -148,6 +156,11 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         toolIconDist = iconDist / 4;
 
         loadIcons(ctx);
+    }
+
+    public void setGlView(GlView view)
+    {
+        this.view = view;
     }
 
     private synchronized void playRingtone()
@@ -389,7 +402,12 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     @Override
     public boolean onStreamVideoPacket(ByteBuffer packet, int size)
     {
-        return MxpegNative.onStreamVideoPacket(packet, size);
+        int r = MxpegNative.onStreamVideoPacket(packet, size);
+        if (r > 0)
+        {
+            view.requestRender();
+        }
+        return r >= 0;
     }
 
     @Override
@@ -424,6 +442,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         {
             if (onActionFocus((int)event.getX(), (int)event.getY()))
             {
+                view.requestRender();
+
                 actionGestureInProgress = true;
                 audioManager.playSoundEffect(SoundEffectConstants.CLICK);
             }
@@ -432,6 +452,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         {
             if (action == MotionEvent.ACTION_UP)
             {
+                view.requestRender();
+
                 actionGestureInProgress = false;
                 onActionPerform((int)event.getX(), (int)event.getY());
             }

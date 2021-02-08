@@ -21,4 +21,6 @@ public interface GlApp
 
     boolean onTouchEvent(MotionEvent event);
     void onBackButtonPressed();
+
+    void setGlView(GlView view);
 }
