@@ -14,6 +14,7 @@ import android.opengl.GLES20;
 import android.opengl.GLUtils;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;

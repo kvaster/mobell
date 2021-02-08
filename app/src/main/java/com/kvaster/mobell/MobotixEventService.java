@@ -16,8 +16,8 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.SystemClock;
-import android.support.annotation.Nullable;
-import android.support.v4.app.NotificationCompat;
+import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
 import android.util.Log;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -402,10 +402,29 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private synchronized boolean onBell(JSONObject event) throws JSONException
     {
-        String type = String.valueOf(event.getJSONArray("result").get(0));
+        String type;
+
+        try
+        {
+            type = String.valueOf(event.getJSONArray("result").get(0));
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
+
         if ("bell".equals(type))
         {
-            boolean isRing = event.getJSONArray("result").getBoolean(1);
+            boolean isRing;
+
+            try
+            {
+                isRing = event.getJSONArray("result").getBoolean(1);
+            }
+            catch (Exception e)
+            {
+                return false;
+            }
 
             if (isRing)
             {

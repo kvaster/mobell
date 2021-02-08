@@ -19,10 +19,13 @@
     <string name="p_fast_wifi">Keep wifi fast</string>
     <string name="p_fast_wifi_hint">Keep wifi in high performance mode in order to have less packet loss. This may affect battery life.</string>
     <string name="title_activity_about">About MoBell</string>
-    <string name="about_page_description"><![CDATA[MoBell is simple intercom app for Mobotix T24/T25 door stations.
-MoBell does not require internet connection - it uses local tcp connection and tries not to eat battery.
-MoBell is licensed under Apache-2.0 license and uses ffmpeg library internally.
-You can find mobell's source code on github - github is a nice place to add bug reports and feature requests :)
-]]></string>
+    <string name="about_page_description">
+        <![CDATA[
+        MoBell is simple intercom app for Mobotix T24/T25 door stations.
+        MoBell does not require internet connection - it uses local tcp connection and tries not to eat battery.
+        MoBell is licensed under Apache-2.0 license and uses ffmpeg library internally.
+        You can find mobell\'s source code on github - github is a nice place to add bug reports and feature requests :)
+        ]]>
+    </string>
     <string name="about_version">Version %s</string>
 </resources>

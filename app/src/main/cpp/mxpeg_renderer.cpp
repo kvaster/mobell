@@ -33,8 +33,6 @@ static void slesPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context)
 
 MxpegRenderer::MxpegRenderer()
 {
-    avcodec_register_all();
-
     // Video
     pthread_mutex_init(&videoMutex, nullptr);
     gotVideo = false;

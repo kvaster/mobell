@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.4.1)
+project(mobell)
 
 get_filename_component(ffmpeg ${CMAKE_SOURCE_DIR}/../ffmpeg ABSOLUTE)
 
