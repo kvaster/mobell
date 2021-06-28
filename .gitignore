@@ -1,14 +1,5 @@
 *.iml
-/.idea/libraries
-/.idea/caches
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/shelf
-/.idea/dictionaries
-/.idea/sonarlint
-/.idea/sonarlint.xml
-/.idea/kotlinc.xml
-/.idea/dbnavigator.xml
+/.idea
 
 /local.properties
 .gradle
