@@ -7,6 +7,6 @@
         <!--<item name="android:windowContentOverlay">@null</item>-->
     </style>
 
-    <style name="SettingsTheme" parent="android:Theme.DeviceDefault.Light">
+    <style name="SettingsTheme" parent="Theme.AppCompat">
     </style>
 </resources>

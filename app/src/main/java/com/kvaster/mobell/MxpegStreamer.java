@@ -297,8 +297,8 @@ public abstract class MxpegStreamer {
 
         b.clear();
         r.get(b, start, end);
-        int size = buffer.position();
-        buffer.rewind();
+        int size = b.position();
+        b.rewind();
 
         r.cut(end);
 

@@ -12,8 +12,8 @@
     <!-- dangerous permissions -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
-    <!-- needed to start activity from background -->
-    <!-- <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/> -->
+    <!-- very dangerous permissions -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
             android:allowBackup="true"

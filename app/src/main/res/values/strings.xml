@@ -14,10 +14,13 @@
     <string name="p_pass_hint">user password</string>
     <string name="p_pass_summary">***</string>
     <string name="p_ringtone">Ringtone</string>
+    <string name="p_ringtone_none">none</string>
     <string name="p_background">Run in background</string>
     <string name="p_background_hint">Run as service in background. This may affect battery life.</string>
     <string name="p_fast_wifi">Keep wifi fast</string>
     <string name="p_fast_wifi_hint">Keep wifi in high performance mode in order to have less packet loss. This may affect battery life.</string>
+    <string name="p_disable_optimization">Disable battery optimization</string>
+    <string name="p_disable_optimization_hint">Disable battery optimizations for mobell. This is really required for stable connection on latest android. This may greatly affect battery life.</string>
     <string name="title_activity_about">About MoBell</string>
     <string name="about_page_description">
         <![CDATA[

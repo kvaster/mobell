@@ -8,13 +8,13 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
-import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.WindowManager.LayoutParams;
 import android.widget.FrameLayout;
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import static com.kvaster.mobell.AndroidUtils.TAG;
 
@@ -48,8 +48,7 @@ public class MainActivity extends Activity {
         MobotixEventService.startServiceIfEnabled(this);
 
         // show activity over locked screen
-        getWindow().addFlags(LayoutParams.FLAG_SHOW_WHEN_LOCKED);
-        //getWindow().addFlags(LayoutParams.FLAG_SHOW_WHEN_LOCKED | LayoutParams.FLAG_TURN_SCREEN_ON);
+        getWindow().addFlags(LayoutParams.FLAG_SHOW_WHEN_LOCKED | LayoutParams.FLAG_TURN_SCREEN_ON);
 
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
