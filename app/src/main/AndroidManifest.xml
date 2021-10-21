@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
 
     <!-- dangerous permissions -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
@@ -26,11 +27,11 @@
         <activity
                 android:name=".MainActivity"
                 android:configChanges="keyboardHidden|orientation|screenSize"
+                android:showOnLockScreen="true"
                 android:launchMode="singleTask"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
-
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>

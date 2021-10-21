@@ -2,10 +2,12 @@ package com.kvaster.mobell;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.KeyguardManager;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.DisplayMetrics;
@@ -47,8 +49,7 @@ public class MainActivity extends Activity {
 
         MobotixEventService.startServiceIfEnabled(this);
 
-        // show activity over locked screen
-        getWindow().addFlags(LayoutParams.FLAG_SHOW_WHEN_LOCKED | LayoutParams.FLAG_TURN_SCREEN_ON);
+        turnScreenOnAndKeyguardOff();
 
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
@@ -61,12 +62,33 @@ public class MainActivity extends Activity {
         setContentView(layout);
     }
 
+    private void turnScreenOnAndKeyguardOff() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        } else {
+            getWindow().addFlags(LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                    | LayoutParams.FLAG_TURN_SCREEN_ON
+                    | LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ((KeyguardManager)getSystemService(KEYGUARD_SERVICE)).requestDismissKeyguard(this, null);
+        }
+    }
+
+    private void cleanScreenSettings() {
+        getWindow().clearFlags(LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+
     @Override
     protected void onDestroy() {
         Log.i(TAG, "On destroy");
 
         try {
             view.stop();
+
+            cleanScreenSettings();
 
             super.onDestroy();
         } catch (Throwable t) {

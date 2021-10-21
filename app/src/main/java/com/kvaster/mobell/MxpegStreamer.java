@@ -173,7 +173,7 @@ public abstract class MxpegStreamer {
                             }
                         } catch (IOException | InterruptedException e) {
                             // write error
-                            Log.w(TAG, "write error", e);
+                            Log.w(TAG, "write error: " + e.getMessage());
                         }
 
                         try {
@@ -213,7 +213,7 @@ public abstract class MxpegStreamer {
                 }
             } catch (Exception e) {
                 // error, do nothing
-                Log.w(TAG, "read error", e);
+                Log.w(TAG, "read error: " + e.getMessage());
             } finally {
                 if (connected) {
                     listener.onStreamStop();

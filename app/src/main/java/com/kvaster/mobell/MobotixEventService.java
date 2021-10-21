@@ -10,12 +10,17 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.AudioAttributes;
+import android.media.AudioManager;
+import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.provider.Settings;
+import android.text.TextUtils;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -41,6 +46,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private static final long READ_TIMEOUT = PING_MIN_DELAY + TimeUnit.SECONDS.toMillis(90);
     private static final long RECONNECT_MIN_DELAY = TimeUnit.SECONDS.toMillis(1);
     private static final long RECONNECT_MAX_DELAY = TimeUnit.SECONDS.toMillis(60);
+    private static final long CALL_TIMEOUT_DELAY = TimeUnit.SECONDS.toMillis(30);
 
     private static final String WIFI_TAG = "mobell:wifi";
     private static final String WAKE_TASK_TAG = "mobell:wake-task";
@@ -48,8 +54,13 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private static final String ACTION_TIMEOUT = "com.kvaster.mobell.TIMEOUT";
     private static final String ACTION_RECONNECT = "com.kvaster.mobell.RECONNECT";
+    private static final String ACTION_CALL_TIMEOUT = "com.kvaster.mobell.CALL_TIMEOUT";
 
-    private static final int NOTIFICATION_ID = 101;
+    private static final int NOTIF_ID_FG = 1;
+    private static final String CHAN_ID_FG = "mobell-fg";
+
+    private static final int NOTIF_ID_CALL = 2;
+    private static final String CHAN_ID_CALL = "mobell-call";
 
     private final IBinder binder = new LocalBinder();
 
@@ -61,9 +72,12 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private PowerManager.WakeLock callWakeLock;
 
     private AlarmManager alarmManager;
-    private AtomicReference<PendingIntent> currentAlarm = new AtomicReference<>();
+    private final AtomicReference<PendingIntent> currentAlarm = new AtomicReference<>();
+    private final AtomicReference<PendingIntent> callTimeoutAlarm = new AtomicReference<>();
 
     private Notification serviceNotification;
+
+    private final AtomicInteger actionCounter = new AtomicInteger();
 
     private long reconnectDelay = RECONNECT_MIN_DELAY;
 
@@ -73,7 +87,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         boolean onEvent(JSONObject e) throws Exception;
     }
 
-    private Map<Integer, EventProcessor> events = new ConcurrentHashMap<>();
+    private final Map<Integer, EventProcessor> events = new ConcurrentHashMap<>();
 
     public class LocalBinder extends Binder {
         MobotixEventService getService() {
@@ -160,17 +174,6 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         );
         streamer.start();
 
-//        IntentFilter screenOffFilter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
-//        screenOffReceiver = new BroadcastReceiver()
-//        {
-//            @Override
-//            public void onReceive(Context context, Intent intent)
-//            {
-//                bringToTop();
-//            }
-//        };
-//        registerReceiver(screenOffReceiver, screenOffFilter);
-
         scheduleReconnect();
     }
 
@@ -180,7 +183,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
         Log.i(TAG, "MBE: service destroyed");
 
-        cancelScheduledAction();
+        cancelAction();
 
         unlockWifi();
         taskWakeLock.release();
@@ -190,17 +193,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
         stopForeground(true);
 
-        //unregisterReceiver(screenOffReceiver);
-
         super.onDestroy();
-    }
-
-    private void bringToTop() {
-        Intent i = new Intent(this, MainActivity.class);
-        i.setAction(Intent.ACTION_MAIN);
-        i.addCategory(Intent.CATEGORY_LAUNCHER);
-        i.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(i);
     }
 
     private synchronized void lockWifi() {
@@ -221,15 +214,12 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     }
 
     private Notification createServiceNofitication() {
-        String chid;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            chid = "mobell";
-
             NotificationManager nm = Objects.requireNonNull((NotificationManager) getSystemService(NOTIFICATION_SERVICE));
-            NotificationChannel ch = new NotificationChannel(chid, "MoBell", NotificationManager.IMPORTANCE_NONE);
+            // TODO move to strings
+            NotificationChannel ch = new NotificationChannel(CHAN_ID_FG, "MoBell", NotificationManager.IMPORTANCE_NONE);
+            ch.setDescription("Mobell service is running"); // TODO move to strings
             nm.createNotificationChannel(ch);
-        } else {
-            chid = "";
         }
 
         Intent notificationIntent = new Intent(this, MainActivity.class);
@@ -237,7 +227,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         notificationIntent.addCategory(Intent.CATEGORY_LAUNCHER);
 
         PendingIntent contentIntent = PendingIntent.getActivity(getApplicationContext(), 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, chid);
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHAN_ID_FG);
         builder.setContentIntent(contentIntent)
                 .setOngoing(true)
                 .setSmallIcon(R.drawable.ic_notification)
@@ -258,29 +248,43 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         scheduleAction(ACTION_TIMEOUT, PING_MIN_DELAY);
     }
 
-    private final AtomicInteger counter = new AtomicInteger();
-
-    private void scheduleAction(String action, long delayMillis) {
+    private void fireAlarm(String action, long delayMillis, AtomicReference<PendingIntent> alarm) {
         if (!isRunning) {
             return;
         }
 
         Log.i(TAG, "MBE: action scheduled: " + action + " / " + delayMillis);
 
-        cancelScheduledAction();
+        cancelAction();
 
         Intent i = new Intent(this, MobotixEventService.class).setAction(action);
-        PendingIntent pi = PendingIntent.getService(this, counter.getAndIncrement(), i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent pi = PendingIntent.getService(this, actionCounter.getAndIncrement(), i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + delayMillis, pi);
 
-        currentAlarm.set(pi);
+        alarm.set(pi);
     }
 
-    private void cancelScheduledAction() {
-        PendingIntent pi = currentAlarm.getAndSet(null);
+    private void cancelAlarm(AtomicReference<PendingIntent> alarm) {
+        PendingIntent pi = alarm.getAndSet(null);
         if (pi != null) {
             alarmManager.cancel(pi);
         }
+    }
+
+    private void scheduleAction(String action, long delayMillis) {
+        fireAlarm(action, delayMillis, currentAlarm);
+    }
+
+    private void cancelAction() {
+        cancelAlarm(currentAlarm);
+    }
+
+    private void scheduleCallTimeout() {
+        fireAlarm(ACTION_CALL_TIMEOUT, CALL_TIMEOUT_DELAY, callTimeoutAlarm);
+    }
+
+    private void cancelCallTimeout() {
+        cancelAlarm(callTimeoutAlarm);
     }
 
     @Override
@@ -296,21 +300,26 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 streamer.sendCmd("list_addressees");
 
                 scheduleTimeout();
+            } else if (ACTION_RECONNECT.equals(action)) {
+                Log.i(TAG, "MBE: forcing reconnect");
+
+                taskWakeLock.acquire(1000); // 1s - for reconnect attempt
+                scheduleReconnect();
+                streamer.forceReconnectIfNeed();
+            } else if (ACTION_CALL_TIMEOUT.equals(action)) {
+                Log.i(TAG, "MBE: call timeout");
 
                 synchronized (this) {
                     if (callStatus == CallStatus.UNACCEPTED) {
                         changeCallStatus(CallStatus.IDLE);
                     }
                 }
-            } else if (ACTION_RECONNECT.equals(action)) {
-                Log.i(TAG, "MBE: forcing reconnect");
-                taskWakeLock.acquire(1000); // 1s - for reconnect attempt
-                scheduleReconnect();
-                streamer.forceReconnectIfNeed();
+
+                cancelCallTimeout();
             } else {
                 Log.i(TAG, "MBE: service started");
                 // service start (or restart) requested
-                startForeground(NOTIFICATION_ID, serviceNotification);
+                startForeground(NOTIF_ID_FG, serviceNotification);
             }
         } catch (Exception e) {
             Log.e(TAG, "MBE: ERR", e);
@@ -412,16 +421,11 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 return false;
             }
 
+            Log.i(TAG, "MBE: bell received and ring is: " + isRing);
+
             if (isRing) {
                 if (changeCallStatus(CallStatus.UNACCEPTED)) {
-                    // only for test purposes
-//                    streamer.sendCmd("bell_pong");
-
-                    Intent i = new Intent(this, MainActivity.class);
-                    i.setAction(Intent.ACTION_MAIN);
-                    i.addCategory(Intent.CATEGORY_LAUNCHER);
-                    i.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(i);
+                    fireCallNotification();
                 }
             } else {
                 if (callStatus == CallStatus.SUPPRESSED || callStatus == CallStatus.UNACCEPTED) {
@@ -433,11 +437,70 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         return false;
     }
 
+    private void fireCallNotification() {
+        String ringtone = prefs.getString(AppPreferences.RINGTONE, "");
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager nm = Objects.requireNonNull((NotificationManager) getSystemService(NOTIFICATION_SERVICE));
+            // TODO move to strings
+            NotificationChannel ch = new NotificationChannel(CHAN_ID_CALL, "MoBell call", NotificationManager.IMPORTANCE_HIGH);
+            ch.setDescription("Mobell call notification"); // TODO move to strings
+
+            if (!TextUtils.isEmpty(ringtone)) {
+                //Uri.parse(ringtone)
+                ch.setSound(Settings.System.DEFAULT_RINGTONE_URI, new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build());
+            }
+
+            ch.enableLights(true);
+            ch.enableVibration(true);
+
+            nm.createNotificationChannel(ch);
+        }
+
+        // only for test purposes
+        Intent i = new Intent(this, MainActivity.class);
+        i.setAction(Intent.ACTION_MAIN);
+        i.addCategory(Intent.CATEGORY_LAUNCHER);
+        i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        PendingIntent pi = PendingIntent.getActivity(this, 0, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        NotificationCompat.Builder builder =
+                new NotificationCompat.Builder(this, CHAN_ID_CALL) // TODO chid
+                        .setSmallIcon(R.drawable.ic_notification)
+                        .setContentTitle("Incoming call!")
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setCategory(NotificationCompat.CATEGORY_CALL)
+                        //.setSound(Uri.parse(ringtone), AudioManager.STREAM_RING)
+                        //.setSound(Settings.System.DEFAULT_RINGTONE_URI, AudioManager.STREAM_RING)
+                        .setAutoCancel(true)
+                        .setOngoing()
+                        .setFullScreenIntent(pi, true);
+
+        getNotificationManager().notify(NOTIF_ID_CALL, builder.build());
+
+        scheduleCallTimeout();
+    }
+
+    private void dismissCallNotification() {
+        getNotificationManager().cancel(NOTIF_ID_CALL);
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//            getNotificationManager().deleteNotificationChannel(CHAN_ID_CALL);
+//        }
+    }
+
+    private NotificationManager getNotificationManager() {
+        return (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+    }
+
     @Override
     public void onMobotixEvent(JSONObject event) {
-        Log.i(TAG, "MBE: " + new Date() + " | " + event);
+        Log.i(TAG, "MBE: " + event);
 
-        cancelScheduledAction();
+        cancelAction();
         taskWakeLock.acquire(1000);
 
         try {
@@ -452,15 +515,6 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             if ("ping".equals(event.opt("method"))) {
                 streamer.sendCmd("pong");
             }
-//
-//            if ("awake".equals(event.opt("method")))
-//            {
-//                Intent i = new Intent(this, MainActivity.class);
-//                i.setAction(Intent.ACTION_MAIN);
-//                i.addCategory(Intent.CATEGORY_LAUNCHER);
-//                startActivity(i);
-//                streamer.sendCmd("awake");
-//            }
 
             scheduleTimeout();
         } catch (Exception e) {
@@ -471,7 +525,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     //////////////////////////////////////////////
     // Control calls
 
-    private Collection<Listener> listeners = new ArrayList<>();
+    private final Collection<Listener> listeners = new ArrayList<>();
     private CallStatus callStatus = CallStatus.DISCONNECTED;
 
     @SuppressLint("WakelockTimeout")
@@ -484,6 +538,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             callWakeLock.acquire();
         } else {
             callWakeLock.release();
+            dismissCallNotification();
         }
 
         for (Listener l : listeners) {
@@ -495,12 +550,14 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     @Override
     public synchronized void addListener(Listener listener) {
+        Log.i(TAG, "MBE: add listener");
         listeners.add(listener);
         listener.onCallStatus(callStatus);
     }
 
     @Override
     public synchronized void removeListener(Listener listener) {
+        Log.i(TAG, "MBE: remove listener");
         listeners.remove(listener);
         listener.onCallStatus(CallStatus.DISCONNECTED);
     }

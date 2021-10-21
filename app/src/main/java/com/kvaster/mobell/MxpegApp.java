@@ -1,5 +1,6 @@
 package com.kvaster.mobell;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -13,10 +14,12 @@ import android.opengl.GLES20;
 import android.opengl.GLUtils;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.SoundEffectConstants;
+import android.view.WindowManager;
 import org.json.JSONObject;
 
 import java.nio.ByteBuffer;
@@ -24,8 +27,10 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.Objects;
 
+import static com.kvaster.mobell.AndroidUtils.TAG;
+
 public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderListener, CallService.Listener {
-    private Context ctx;
+    private Activity ctx;
 
     private boolean needResume;
     private final MxpegStreamer streamer;
@@ -56,7 +61,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
     private GlView view;
 
-    public MxpegApp(Context ctx, DisplayMetrics displayMetrics) {
+    public MxpegApp(Activity ctx, DisplayMetrics displayMetrics) {
         this.ctx = ctx;
         this.prefs = AndroidUtils.getSharedPreferences(ctx);
 
@@ -518,8 +523,14 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         }
 
         if (ringtone) {
+            ctx.runOnUiThread(() -> {
+                ctx.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            });
             playRingtone();
         } else {
+            ctx.runOnUiThread(() -> {
+                ctx.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            });
             stopRingtone();
         }
 
@@ -595,6 +606,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
     @Override
     public synchronized void onCallStatus(CallService.CallStatus status) {
+        Log.i(TAG, "changed call status: " + status);
+
         switch (status) {
             case DISCONNECTED:
                 setActions(false, false, false);
