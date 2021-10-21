@@ -16,9 +16,9 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
-import android.util.Log;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.kvaster.mobell.AndroidUtils.TAG;
@@ -37,7 +38,7 @@ import static com.kvaster.mobell.JsonUtils.ja;
 
 public class MobotixEventService extends Service implements MxpegStreamer.Listener, CallService, SharedPreferences.OnSharedPreferenceChangeListener
 {
-    private static final long PING_MIN_DELAY = TimeUnit.SECONDS.toMillis(60);
+    private static final long PING_MIN_DELAY = TimeUnit.SECONDS.toMillis(5);
     private static final long READ_TIMEOUT = PING_MIN_DELAY + TimeUnit.SECONDS.toMillis(90);
     private static final long RECONNECT_MIN_DELAY = TimeUnit.SECONDS.toMillis(1);
     private static final long RECONNECT_MAX_DELAY = TimeUnit.SECONDS.toMillis(60);
@@ -143,7 +144,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         // alarms
         alarmManager = Objects.requireNonNull((AlarmManager)getSystemService(ALARM_SERVICE));
 
-        // we need wifi lock to receive packest over wifi even in sleep mode
+        // we need wifi lock to receive packets over wifi even in sleep mode
         lockWifi();
 
         // we will use lock only during connection initiation
@@ -169,7 +170,49 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         );
         streamer.start();
 
+//        IntentFilter screenOffFilter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+//        screenOffReceiver = new BroadcastReceiver()
+//        {
+//            @Override
+//            public void onReceive(Context context, Intent intent)
+//            {
+//                bringToTop();
+//            }
+//        };
+//        registerReceiver(screenOffReceiver, screenOffFilter);
+
         scheduleReconnect();
+    }
+
+    @Override
+    public void onDestroy()
+    {
+        isRunning = false;
+
+        Log.i(TAG, "MBE: service destroyed");
+
+        cancelScheduledAction();
+
+        unlockWifi();
+        taskWakeLock.release();
+        callWakeLock.release();
+
+        streamer.stop();
+
+        stopForeground(true);
+
+        //unregisterReceiver(screenOffReceiver);
+
+        super.onDestroy();
+    }
+
+    private void bringToTop()
+    {
+        Intent i = new Intent(this, MainActivity.class);
+        i.setAction(Intent.ACTION_MAIN);
+        i.addCategory(Intent.CATEGORY_LAUNCHER);
+        i.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(i);
     }
 
     private synchronized void lockWifi()
@@ -234,6 +277,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         scheduleAction(ACTION_TIMEOUT, PING_MIN_DELAY);
     }
 
+    private final AtomicInteger counter = new AtomicInteger();
+
     private void scheduleAction(String action, long delayMillis)
     {
         if (!isRunning)
@@ -244,12 +289,10 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         cancelScheduledAction();
 
         Intent i = new Intent(this, MobotixEventService.class).setAction(action);
-        PendingIntent pi = PendingIntent.getService(this, 0, i, PendingIntent.FLAG_UPDATE_CURRENT);
-        alarmManager.set(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + delayMillis, pi);
+        PendingIntent pi = PendingIntent.getService(this, counter.getAndIncrement(), i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + delayMillis, pi);
 
-        pi = currentAlarm.getAndSet(pi);
-        if (pi != null)
-            alarmManager.cancel(pi);
+        currentAlarm.set(pi);
     }
 
     private void cancelScheduledAction()
@@ -257,26 +300,6 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         PendingIntent pi = currentAlarm.getAndSet(null);
         if (pi != null)
             alarmManager.cancel(pi);
-    }
-
-    @Override
-    public void onDestroy()
-    {
-        isRunning = false;
-
-        Log.i(TAG, "MBE: service destroyed");
-
-        cancelScheduledAction();
-
-        unlockWifi();
-        taskWakeLock.release();
-        callWakeLock.release();
-
-        streamer.stop();
-
-        stopForeground(true);
-
-        super.onDestroy();
     }
 
     @Override
@@ -293,6 +316,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 Log.i(TAG, "MBE: timeout occured");
                 taskWakeLock.acquire(1000);
                 streamer.sendCmd("list_addressees");
+
+                scheduleTimeout();
 
                 synchronized (this)
                 {
@@ -335,6 +360,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     public void onStreamStart()
     {
         Log.i(TAG, "MBE: " + new Date() + " | Stream start");
+
+        taskWakeLock.acquire(1000);
 
         changeCallStatus(CallStatus.IDLE);
 
@@ -436,7 +463,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                     Intent i = new Intent(this, MainActivity.class);
                     i.setAction(Intent.ACTION_MAIN);
                     i.addCategory(Intent.CATEGORY_LAUNCHER);
-                    i.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    i.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                     startActivity(i);
                 }
             }
@@ -455,6 +482,9 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     {
         Log.i(TAG, "MBE: " + new Date() + " | " + event);
 
+        cancelScheduledAction();
+        taskWakeLock.acquire(1000);
+
         try
         {
             int id = event.optInt("id");
@@ -465,8 +495,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                     events.remove(id);
             }
 
-//            if ("ping".equals(event.opt("method")))
-//                streamer.sendCmd("pong");
+            if ("ping".equals(event.opt("method")))
+                streamer.sendCmd("pong");
 //
 //            if ("awake".equals(event.opt("method")))
 //            {

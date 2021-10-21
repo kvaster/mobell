@@ -54,7 +54,8 @@ public class MainActivity extends Activity
         MobotixEventService.startServiceIfEnabled(this);
 
         // show activity over locked screen
-        getWindow().addFlags(LayoutParams.FLAG_SHOW_WHEN_LOCKED | LayoutParams.FLAG_TURN_SCREEN_ON);
+        getWindow().addFlags(LayoutParams.FLAG_SHOW_WHEN_LOCKED);
+        //getWindow().addFlags(LayoutParams.FLAG_SHOW_WHEN_LOCKED | LayoutParams.FLAG_TURN_SCREEN_ON);
 
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);

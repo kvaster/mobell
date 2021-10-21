@@ -12,6 +12,9 @@
     <!-- dangerous permissions -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
+    <!-- needed to start activity from background -->
+    <!-- <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/> -->
+
     <application
             android:allowBackup="true"
             android:icon="@mipmap/ic_launcher"
@@ -23,7 +26,8 @@
         <activity
                 android:name=".MainActivity"
                 android:configChanges="keyboardHidden|orientation|screenSize"
-                android:launchMode="singleTask">
+                android:launchMode="singleTask"
+                android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
 
@@ -39,18 +43,21 @@
         <activity
                 android:name=".AboutActivity"
                 android:label="@string/title_activity_about"
-                android:theme="@style/SettingsTheme"/>
+                android:theme="@style/SettingsTheme"
+                android:showForAllUsers="true"/>
 
         <service
                 android:name=".MobotixEventService"
                 android:enabled="true"
                 android:exported="false"
+                android:foregroundServiceType="phoneCall"
                 android:permission="android.permission.FOREGROUND_SERVICE"/>
 
         <receiver
                 android:name=".OnBootReceiver"
                 android:enabled="true"
-                android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+                android:permission="android.permission.RECEIVE_BOOT_COMPLETED"
+                android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.QUICKBOOT_POWERON"/>

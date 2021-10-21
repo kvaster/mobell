@@ -1,6 +1,7 @@
 package com.kvaster.mobell;
 
 import android.util.Base64;
+import android.util.Log;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -16,6 +17,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.kvaster.mobell.AndroidUtils.TAG;
 import static com.kvaster.mobell.JsonUtils.ja;
 import static com.kvaster.mobell.JsonUtils.je;
 import static com.kvaster.mobell.JsonUtils.jo;
@@ -159,10 +161,12 @@ public abstract class MxpegStreamer
 
             try
             {
-                socket.setSoTimeout(readTimeout);
-                socket.setTcpNoDelay(true);
                 InetAddress ia = InetAddress.getByName(getHost());
                 socket.connect(new InetSocketAddress(ia, getPort()), 1000);
+
+                socket.setSoTimeout(readTimeout);
+                socket.setTcpNoDelay(true);
+                socket.setKeepAlive(true);
 
                 try (InputStream is = socket.getInputStream(); OutputStream os = socket.getOutputStream())
                 {
@@ -185,6 +189,7 @@ public abstract class MxpegStreamer
                         catch (IOException | InterruptedException e)
                         {
                             // write error
+                            Log.w(TAG, "write error", e);
                         }
 
                         try
@@ -225,6 +230,7 @@ public abstract class MxpegStreamer
             catch (Exception e)
             {
                 // error, do nothing
+                Log.w(TAG, "read error", e);
             }
             finally
             {
