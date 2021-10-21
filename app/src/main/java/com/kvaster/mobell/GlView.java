@@ -9,12 +9,12 @@ import android.view.MotionEvent;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
+
 import java.util.concurrent.TimeUnit;
 
 import static com.kvaster.mobell.AndroidUtils.TAG;
 
-public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
-{
+public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer {
     private boolean started = false;
     private boolean suspended = false;
     private boolean paused = false;
@@ -22,8 +22,7 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
     private final DisplayMetrics displayMetrics;
     private final GlApp app;
 
-    public GlView(GlApp app, Activity activity, DisplayMetrics displayMetrics)
-    {
+    public GlView(GlApp app, Activity activity, DisplayMetrics displayMetrics) {
         super(activity);
 
         app.setGlView(this);
@@ -42,31 +41,24 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
         setRenderMode(RENDERMODE_WHEN_DIRTY);
     }
 
-    public void stop()
-    {
+    public void stop() {
         queueEvent(app::stop);
     }
 
-    public void resume()
-    {
+    public void resume() {
         // This function is called not from render thread.
         // Let's create event in render thread for simplicity.
-        if (suspended)
-        {
+        if (suspended) {
             onResume();
 
             suspended = false;
 
             Runnable r = new Runnable() {
                 @Override
-                public synchronized void run()
-                {
-                    try
-                    {
+                public synchronized void run() {
+                    try {
                         app.resume();
-                    }
-                    catch (Throwable t)
-                    {
+                    } catch (Throwable t) {
                         Log.e(TAG, "Error on resume", t);
                     }
 
@@ -75,39 +67,29 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
             };
 
             //noinspection SynchronizationOnLocalVariableOrMethodParameter
-            synchronized(r)
-            {
+            synchronized (r) {
                 queueEvent(r);
-                try
-                {
+                try {
                     r.wait();
-                }
-                catch (InterruptedException e)
-                {
+                } catch (InterruptedException e) {
                     // fatal error
                 }
             }
         }
     }
 
-    public void suspend()
-    {
+    public void suspend() {
         // This function is called not from render thread.
         // Let's create event in render thread for simplicity.
-        if (!suspended)
-        {
+        if (!suspended) {
             suspended = true;
 
             Runnable r = new Runnable() {
                 @Override
-                public synchronized void run()
-                {
-                    try
-                    {
+                public synchronized void run() {
+                    try {
                         app.suspend();
-                    }
-                    catch (Throwable t)
-                    {
+                    } catch (Throwable t) {
                         Log.e(TAG, "Error on suspend", t);
                     }
 
@@ -116,15 +98,11 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
             };
 
             //noinspection SynchronizationOnLocalVariableOrMethodParameter
-            synchronized(r)
-            {
+            synchronized (r) {
                 queueEvent(r);
-                try
-                {
+                try {
                     r.wait();
-                }
-                catch (InterruptedException e)
-                {
+                } catch (InterruptedException e) {
                     // fatal error
                 }
             }
@@ -133,40 +111,30 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
         }
     }
 
-    public void pause()
-    {
+    public void pause() {
         // This function is called not from render thread.
         // Let's create event in render thread for simplicity.
-        if (!paused)
-        {
+        if (!paused) {
             paused = true;
             queueEvent(() -> {
-                try
-                {
+                try {
                     app.pause();
-                }
-                catch (Throwable t)
-                {
+                } catch (Throwable t) {
                     Log.e(TAG, "Error on pause");
                 }
             });
         }
     }
 
-    public void unpause()
-    {
+    public void unpause() {
         // This function is called not from render thread.
         // Let's create event in render thread for simplicity.
-        if (paused)
-        {
+        if (paused) {
             paused = false;
             queueEvent(() -> {
-                try
-                {
+                try {
                     app.unpause();
-                }
-                catch (Throwable t)
-                {
+                } catch (Throwable t) {
                     Log.e(TAG, "Error on unpause");
                 }
             });
@@ -174,8 +142,7 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
     }
 
     @Override
-    public void onSurfaceCreated(GL10 gl, EGLConfig config)
-    {
+    public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         int w = getWidth();
         int h = getHeight();
 
@@ -184,14 +151,12 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
     }
 
     @Override
-    public void onSurfaceChanged(GL10 gl, int width, int height)
-    {
-        if (!started)
-        {
+    public void onSurfaceChanged(GL10 gl, int width, int height) {
+        if (!started) {
             app.start();
             started = true;
             // Destroy splash screen
-            final Activity a = (Activity)getContext();
+            final Activity a = (Activity) getContext();
             a.runOnUiThread(() -> a.getWindow().setBackgroundDrawable(null));
         }
 
@@ -199,30 +164,24 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer
     }
 
     @Override
-    public void onDrawFrame(GL10 gl)
-    {
-        try
-        {
+    public void onDrawFrame(GL10 gl) {
+        try {
             app.update();
             app.draw();
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             Log.e(TAG, "Error in draw", t);
         }
     }
 
     // Processed separately from pointerQueue and it's not MotionEvent,
     // cause MotionEvent.BUTTON_BACK is accessible only from API 14.
-    public void onBackButtonPressed()
-    {
+    public void onBackButtonPressed() {
         app.onBackButtonPressed();
     }
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
-    public boolean onTouchEvent(MotionEvent event)
-    {
+    public boolean onTouchEvent(MotionEvent event) {
         return app.onTouchEvent(event);
     }
 }

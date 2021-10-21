@@ -2,8 +2,7 @@ package com.kvaster.mobell;
 
 import java.nio.ByteBuffer;
 
-public class MxpegNative
-{
+public class MxpegNative {
     public static native void start();
     public static native void stop();
 
@@ -24,8 +23,7 @@ public class MxpegNative
     public static native void startRecord(AudioRecorderListener listener);
     public static native void stopRecord();
 
-    static
-    {
+    static {
         //System.loadLibrary("avutil");
         //System.loadLibrary("avcodec");
         System.loadLibrary("mobell");

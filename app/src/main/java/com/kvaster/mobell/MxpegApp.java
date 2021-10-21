@@ -24,8 +24,7 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.Objects;
 
-public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderListener, CallService.Listener
-{
+public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderListener, CallService.Listener {
     private Context ctx;
 
     private boolean needResume;
@@ -38,8 +37,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
     private volatile boolean volumeEnabled;
 
-    private final DefferedCallService defferedCallService = new DefferedCallService();
-    private CallService callService = defferedCallService;
+    private final DeferredCallService deferredCallService = new DeferredCallService();
+    private CallService callService = deferredCallService;
 
     private final GestureDetector gestureDetector;
     private final ScaleGestureDetector scaleGestureDetector;
@@ -57,12 +56,11 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
     private GlView view;
 
-    public MxpegApp(Context ctx, DisplayMetrics displayMetrics)
-    {
+    public MxpegApp(Context ctx, DisplayMetrics displayMetrics) {
         this.ctx = ctx;
         this.prefs = AndroidUtils.getSharedPreferences(ctx);
 
-        audioManager = Objects.requireNonNull((AudioManager)ctx.getSystemService(Context.AUDIO_SERVICE));
+        audioManager = Objects.requireNonNull((AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE));
 
         streamer = new PrefsAwareMxpegStreamer(
                 ctx,
@@ -75,10 +73,12 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
         gestureDetector = new GestureDetector(ctx, new GestureDetector.SimpleOnGestureListener() {
             @Override
-            public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY)
-            {
-                if (scaleGestureDetector.isInProgress() || actionGestureInProgress)
+            public boolean onScroll(
+                    MotionEvent e1, MotionEvent e2, float distanceX, float distanceY
+            ) {
+                if (scaleGestureDetector.isInProgress() || actionGestureInProgress) {
                     return false;
+                }
 
                 view.requestRender();
 
@@ -88,10 +88,10 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
             }
 
             @Override
-            public boolean onDoubleTap(MotionEvent e)
-            {
-                if (scaleGestureDetector.isInProgress() || actionGestureInProgress)
+            public boolean onDoubleTap(MotionEvent e) {
+                if (scaleGestureDetector.isInProgress() || actionGestureInProgress) {
                     return false;
+                }
 
                 view.requestRender();
 
@@ -110,10 +110,10 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
             float startRealY;
 
             @Override
-            public boolean onScaleBegin(ScaleGestureDetector detector)
-            {
-                if (actionGestureInProgress)
+            public boolean onScaleBegin(ScaleGestureDetector detector) {
+                if (actionGestureInProgress) {
                     return false;
+                }
 
                 startFocusX = detector.getFocusX();
                 startFocusY = detector.getFocusY();
@@ -131,10 +131,10 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
             }
 
             @Override
-            public boolean onScale(ScaleGestureDetector detector)
-            {
-                if (actionGestureInProgress)
+            public boolean onScale(ScaleGestureDetector detector) {
+                if (actionGestureInProgress) {
                     return false;
+                }
 
                 scale = Math.max(0.5f, Math.min(2.0f, scale * detector.getScaleFactor()));
                 panX = startRealX * scale + startDeltaX + (detector.getFocusX() - startFocusX);
@@ -158,32 +158,24 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         loadIcons(ctx);
     }
 
-    public void setGlView(GlView view)
-    {
+    public void setGlView(GlView view) {
         this.view = view;
     }
 
-    private synchronized void playRingtone()
-    {
-        try
-        {
-            try
-            {
-                if (mediaPlayer != null && mediaPlayer.isPlaying())
+    private synchronized void playRingtone() {
+        try {
+            try {
+                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
                     mediaPlayer.stop();
-            }
-            catch (Exception e)
-            {
+                }
+            } catch (Exception e) {
                 // do nothing
             }
 
             String ringtone = prefs.getString(AppPreferences.RINGTONE, "");
-            if (TextUtils.isEmpty(ringtone))
-            {
+            if (TextUtils.isEmpty(ringtone)) {
                 mediaPlayer = null;
-            }
-            else
-            {
+            } else {
                 mediaPlayer = new MediaPlayer();
                 mediaPlayer.setDataSource(ctx, Uri.parse(ringtone));
                 mediaPlayer.setAudioStreamType(AudioManager.STREAM_RING);
@@ -192,24 +184,17 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                 mediaPlayer.prepare();
                 mediaPlayer.start();
             }
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             // do nothing ?
             mediaPlayer = null;
         }
     }
 
-    private synchronized void stopRingtone()
-    {
-        if (mediaPlayer != null && mediaPlayer.isPlaying())
-        {
-            try
-            {
+    private synchronized void stopRingtone() {
+        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+            try {
                 mediaPlayer.stop();
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 // do nothing
             }
 
@@ -217,59 +202,49 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         }
     }
 
-    public synchronized void onServiceBind(CallService service)
-    {
+    public synchronized void onServiceBind(CallService service) {
         callService = service;
-        defferedCallService.perform(service);
+        deferredCallService.perform(service);
     }
 
-    public synchronized void onServiceUnbind()
-    {
-        callService = defferedCallService;
+    public synchronized void onServiceUnbind() {
+        callService = deferredCallService;
     }
 
-    public void resetSize()
-    {
+    public void resetSize() {
         scale = 1;
         panX = panY = 0;
     }
 
 
-    public synchronized void allowRecording()
-    {
+    public synchronized void allowRecording() {
         recordingEnabled = true;
     }
 
-    private synchronized void requestStartRecording()
-    {
-        if (recordingEnabled)
-        {
+    private synchronized void requestStartRecording() {
+        if (recordingEnabled) {
             recordingRequested = true;
-            if (started)
+            if (started) {
                 startRecording();
+            }
         }
     }
 
-    private synchronized void requestStopRecording()
-    {
+    private synchronized void requestStopRecording() {
         recordingRequested = false;
         stopRecording();
     }
 
-    private synchronized void startRecording()
-    {
-        if (!recordingInProgress)
-        {
+    private synchronized void startRecording() {
+        if (!recordingInProgress) {
             recordingInProgress = true;
             streamer.startAudio();
             MxpegNative.startRecord(this);
         }
     }
 
-    private synchronized void stopRecording()
-    {
-        if (recordingInProgress)
-        {
+    private synchronized void stopRecording() {
+        if (recordingInProgress) {
             recordingInProgress = false;
             MxpegNative.stopRecord();
             streamer.stopAudio();
@@ -277,8 +252,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     }
 
     @Override
-    public void start()
-    {
+    public void start() {
         MxpegNative.start();
         bindResources();
 
@@ -288,8 +262,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     }
 
     @Override
-    public void stop()
-    {
+    public void stop() {
         callService.removeListener(this);
 
         streamer.stop();
@@ -299,8 +272,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     }
 
     @Override
-    public void suspend()
-    {
+    public void suspend() {
         callService.removeListener(this);
 
         needResume = true; // sometimes we can receive canvasSizeChanged before resume...
@@ -311,8 +283,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     }
 
     @Override
-    public void resume()
-    {
+    public void resume() {
         callService.addListener(this);
 
         // real resume will be done only after surface creation
@@ -321,28 +292,23 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     }
 
     @Override
-    public void pause()
-    {
+    public void pause() {
         // do nothing
     }
 
     @Override
-    public void unpause()
-    {
+    public void unpause() {
         // do nothing
     }
 
     @Override
-    public void canvasCreated(int width, int height, int dpi, float density)
-    {
+    public void canvasCreated(int width, int height, int dpi, float density) {
         MxpegNative.canvasSizeChanged(width, height);
     }
 
     @Override
-    public void canvasSizeChanged(int width, int height)
-    {
-        if (needResume)
-        {
+    public void canvasSizeChanged(int width, int height) {
+        if (needResume) {
             needResume = false;
             realResume();
             //streamer.start();
@@ -360,102 +326,87 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     }
 
     @Override
-    public void update()
-    {
+    public void update() {
         MxpegNative.update();
     }
 
     @Override
-    public void draw()
-    {
+    public void draw() {
         MxpegNative.draw(scale, panX, panY);
         drawActions();
     }
 
-    private void realResume()
-    {
+    private void realResume() {
         MxpegNative.resume();
         bindResources();
     }
 
     @Override
-    public synchronized void onStreamStart()
-    {
+    public synchronized void onStreamStart() {
         started = true;
 
         MxpegNative.onStreamStart();
         streamer.startVideo();
 
-        if (recordingEnabled && recordingRequested)
+        if (recordingEnabled && recordingRequested) {
             startRecording();
+        }
     }
 
     @Override
-    public synchronized void onStreamStop()
-    {
-        if (recordingEnabled)
+    public synchronized void onStreamStop() {
+        if (recordingEnabled) {
             stopRecording();
+        }
 
         MxpegNative.onStreamStop();
     }
 
     @Override
-    public boolean onStreamVideoPacket(ByteBuffer packet, int size)
-    {
+    public boolean onStreamVideoPacket(ByteBuffer packet, int size) {
         int r = MxpegNative.onStreamVideoPacket(packet, size);
-        if (r > 0)
-        {
+        if (r > 0) {
             view.requestRender();
         }
         return r >= 0;
     }
 
     @Override
-    public boolean onStreamAudioPacket(ByteBuffer packet, int size)
-    {
+    public boolean onStreamAudioPacket(ByteBuffer packet, int size) {
         return !volumeEnabled || MxpegNative.onStreamAudioPacket(packet, size);
     }
 
     @Override
-    public void onMobotixEvent(JSONObject event)
-    {
+    public void onMobotixEvent(JSONObject event) {
         // do nothing by default
     }
 
     @Override
-    public void onAudioData(byte[] data)
-    {
+    public void onAudioData(byte[] data) {
         streamer.sendAudio(data);
     }
 
-    public void onBackButtonPressed()
-    {
+    public void onBackButtonPressed() {
         // TODO
     }
 
-    public boolean onTouchEvent(MotionEvent event)
-    {
+    public boolean onTouchEvent(MotionEvent event) {
         boolean ok = canProcess(event);
 
         int action = event.getActionMasked();
-        if (action == MotionEvent.ACTION_DOWN)
-        {
-            if (onActionFocus((int)event.getX(), (int)event.getY()))
-            {
+        if (action == MotionEvent.ACTION_DOWN) {
+            if (onActionFocus((int) event.getX(), (int) event.getY())) {
                 view.requestRender();
 
                 actionGestureInProgress = true;
                 audioManager.playSoundEffect(SoundEffectConstants.CLICK);
             }
-        }
-        else if (actionGestureInProgress)
-        {
-            if (action == MotionEvent.ACTION_UP)
-            {
+        } else if (actionGestureInProgress) {
+            if (action == MotionEvent.ACTION_UP) {
                 view.requestRender();
 
                 actionGestureInProgress = false;
-                onActionPerform((int)event.getX(), (int)event.getY());
+                onActionPerform((int) event.getX(), (int) event.getY());
             }
         }
 
@@ -465,10 +416,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         return ok;
     }
 
-    private static boolean canProcess(MotionEvent event)
-    {
-        switch (event.getActionMasked())
-        {
+    private static boolean canProcess(MotionEvent event) {
+        switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN:
             case MotionEvent.ACTION_UP:
@@ -484,18 +433,15 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     ////////////////////////////////////////////////////////////////
     // actions
 
-    private interface IconSupplier
-    {
+    private interface IconSupplier {
         Icon getIcon();
     }
 
-    private interface DisabledSupplier
-    {
+    private interface DisabledSupplier {
         boolean isDisabled();
     }
 
-    private class Action
-    {
+    private class Action {
         int x;
         int y;
         int w;
@@ -506,46 +452,38 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         IconSupplier iconSupplier;
         DisabledSupplier disabledSupplier;
 
-        Action(Runnable action, Icon icon)
-        {
+        Action(Runnable action, Icon icon) {
             this(action, () -> icon);
         }
 
-        Action(Runnable action, IconSupplier iconSupplier)
-        {
+        Action(Runnable action, IconSupplier iconSupplier) {
             this(action, iconSupplier, null);
         }
 
-        Action(Runnable action, IconSupplier iconSupplier, DisabledSupplier disabledSupplier)
-        {
+        Action(Runnable action, IconSupplier iconSupplier, DisabledSupplier disabledSupplier) {
             this.action = action;
             this.iconSupplier = iconSupplier;
             this.disabledSupplier = disabledSupplier == null ? () -> false : disabledSupplier;
         }
 
-        boolean hit(int px, int py)
-        {
+        boolean hit(int px, int py) {
             return (px >= (x - toolIconDist) && px < (x + w + toolIconDist)
                     && py >= (y - toolIconDist) && py < (y + h + toolIconDist));
         }
 
-        Icon getIcon()
-        {
+        Icon getIcon() {
             return iconSupplier.getIcon();
         }
 
-        void action()
-        {
+        void action() {
             action.run();
         }
 
-        boolean isDisabled()
-        {
+        boolean isDisabled() {
             return disabledSupplier.isDisabled();
         }
 
-        void resetSize()
-        {
+        void resetSize() {
             x = y = w = h = 0;
         }
     }
@@ -562,38 +500,37 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         panY = 0;
     }, Icon.DEFAULT_SIZE);
 
-    private synchronized void setActions(boolean volumeEnabled, boolean micEnabled, boolean ringtone, Action... actions)
-    {
+    private synchronized void setActions(
+            boolean volumeEnabled, boolean micEnabled, boolean ringtone, Action... actions
+    ) {
         this.volumeEnabled = volumeEnabled;
 
-        if (recordingEnabled)
-        {
-            if (micEnabled)
+        if (recordingEnabled) {
+            if (micEnabled) {
                 requestStartRecording();
-            else
+            } else {
                 requestStopRecording();
+            }
         }
 
-        for (Action a : this.actions)
-        {
+        for (Action a : this.actions) {
             a.resetSize();
         }
 
-        if (ringtone)
+        if (ringtone) {
             playRingtone();
-        else
+        } else {
             stopRingtone();
+        }
 
         this.actions = actions;
     }
 
-    private synchronized void drawActions()
-    {
+    private synchronized void drawActions() {
         int x = (canvasWidth - (iconSize * actions.length + iconDist * (actions.length - 1))) / 2;
         int y = canvasHeight - iconSize - toolIconDist;
 
-        for (Action a : actions)
-        {
+        for (Action a : actions) {
             a.x = x;
             a.y = y;
             a.w = iconSize;
@@ -609,12 +546,9 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         settingsAction.w = settingsAction.h = toolIconSize;
         drawAction(settingsAction);
 
-        if (scale == 1 && panX == 0 && panY == 0)
-        {
+        if (scale == 1 && panX == 0 && panY == 0) {
             sizeAction.resetSize();
-        }
-        else
-        {
+        } else {
             sizeAction.x = toolIconDist;
             sizeAction.y = canvasHeight - toolIconSize - toolIconDist;
             sizeAction.w = sizeAction.h = toolIconSize;
@@ -622,52 +556,46 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         }
     }
 
-    private void drawAction(Action a)
-    {
+    private void drawAction(Action a) {
         drawIcon(a.getIcon().ordinal(), a.x, a.y, a.w, a.h, a.isDisabled() ? IconStyle.DISABLED : (a.focused ? IconStyle.FOCUSED : IconStyle.NORMAL));
     }
 
-    private interface ActionConsumer
-    {
+    private interface ActionConsumer {
         boolean onAction(Action action);
     }
 
-    private boolean forEachAction(ActionConsumer c)
-    {
+    private boolean forEachAction(ActionConsumer c) {
         boolean ok = false;
-        for (Action a : actions)
+        for (Action a : actions) {
             ok |= c.onAction(a);
+        }
         ok |= c.onAction(settingsAction);
         ok |= c.onAction(sizeAction);
         return ok;
     }
 
-    private synchronized void onActionCancel()
-    {
+    private synchronized void onActionCancel() {
         forEachAction((a) -> a.focused = false);
     }
 
-    private synchronized boolean onActionFocus(int x, int y)
-    {
+    private synchronized boolean onActionFocus(int x, int y) {
         return forEachAction((a) -> a.focused = a.hit(x, y));
     }
 
-    private synchronized boolean onActionPerform(int x, int y)
-    {
+    private synchronized boolean onActionPerform(int x, int y) {
         return forEachAction((a) -> {
             boolean act = a.focused && a.hit(x, y);
-            if (act)
+            if (act) {
                 a.action();
+            }
             a.focused = false;
             return act;
         });
     }
 
     @Override
-    public synchronized void onCallStatus(CallService.CallStatus status)
-    {
-        switch (status)
-        {
+    public synchronized void onCallStatus(CallService.CallStatus status) {
+        switch (status) {
             case DISCONNECTED:
                 setActions(false, false, false);
                 break;
@@ -708,42 +636,39 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         }
     }
 
-    private Action createRejectCallAction()
-    {
+    private Action createRejectCallAction() {
         return new Action(() -> callService.stopCall(), Icon.PHONE_REJECT);
     }
 
-    private Action createAcceptCallAction()
-    {
+    private Action createAcceptCallAction() {
         return new Action(() -> callService.acceptCall(), Icon.PHONE_ACCEPT);
     }
 
-    private Action createDoorOpenAction(boolean acceptCall, boolean rejectCall)
-    {
+    private Action createDoorOpenAction(boolean acceptCall, boolean rejectCall) {
         return new Action(() -> {
-            if (acceptCall)
+            if (acceptCall) {
                 callService.acceptCall();
-            if (rejectCall)
+            }
+            if (rejectCall) {
                 callService.stopCall();
+            }
             callService.openDoor();
         }, Icon.DOOR_OPEN);
     }
 
-    private Action createVolumeOnOffAction()
-    {
-        return new Action(() -> volumeEnabled = ! volumeEnabled,
+    private Action createVolumeOnOffAction() {
+        return new Action(() -> volumeEnabled = !volumeEnabled,
                 () -> volumeEnabled ? Icon.VOLUME_ON : Icon.VOLUME_OFF);
     }
 
-    private Action createMicOnOffAction()
-    {
+    private Action createMicOnOffAction() {
         return new Action(() -> {
-            if (recordingEnabled)
-            {
-                if (recordingRequested)
+            if (recordingEnabled) {
+                if (recordingRequested) {
                     requestStopRecording();
-                else
+                } else {
                     requestStartRecording();
+                }
             }
         }, () -> recordingRequested ? Icon.MIC_ON : Icon.MIC_OFF, () -> !recordingEnabled);
     }
@@ -751,8 +676,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     ////////////////////////////////////////////////////////////////
     // java opengl part
 
-    private enum Icon
-    {
+    private enum Icon {
         PHONE_ACCEPT(R.drawable.ic_phone_accept),
         PHONE_REJECT(R.drawable.ic_phone_reject),
         MIC_ON(R.drawable.ic_mic_on),
@@ -765,14 +689,12 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
         int resId;
 
-        Icon(int resId)
-        {
+        Icon(int resId) {
             this.resId = resId;
         }
     }
 
-    private enum IconStyle
-    {
+    private enum IconStyle {
         NORMAL,
         FOCUSED,
         DISABLED
@@ -798,29 +720,28 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private int scaleAttr;
     private int posAttr;
 
-    private static final float[] STYLE_NORMAL = new float[] {
+    private static final float[] STYLE_NORMAL = new float[]{
             1, 0, 0, 0,
             0, 1, 0, 0,
             0, 0, 1, 0,
             0, 0, 0, 1
     };
 
-    private static final float[] STYLE_FOCUSED = new float[] {
+    private static final float[] STYLE_FOCUSED = new float[]{
             1.2f, 0, 0, 0.2f,
             0, 1.2f, 0, 0.2f,
             0, 0, 1.2f, 0.2f,
             0, 0, 0, 1
     };
 
-    private static final float[] STYLE_DISABLED = new float[] {
+    private static final float[] STYLE_DISABLED = new float[]{
             0.2126f, 0.7152f, 0.0722f, 0,
             0.2126f, 0.7152f, 0.0722f, 0,
             0.2126f, 0.7152f, 0.0722f, 0,
             0, 0, 0, 0.5f
     };
 
-    private Bitmap loadIcon(Context ctx, int resId, int width, int height)
-    {
+    private Bitmap loadIcon(Context ctx, int resId, int width, int height) {
         Drawable vd = Objects.requireNonNull(ctx.getDrawable(resId));
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
@@ -829,18 +750,17 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         return bitmap;
     }
 
-    private void loadIcons(Context ctx)
-    {
+    private void loadIcons(Context ctx) {
         Icon[] icons = Icon.values();
         final int count = icons.length;
         iconsBmps = new Bitmap[count];
 
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < count; i++) {
             iconsBmps[i] = loadIcon(ctx, icons[i].resId, iconTexSize, iconTexSize);
+        }
     }
 
-    private void bindResources()
-    {
+    private void bindResources() {
         // textures
         final int count = iconsBmps.length;
         iconsTexs = new int[count];
@@ -848,8 +768,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
 
-        for (int i = 0; i < count; i++)
-        {
+        for (int i = 0; i < count; i++) {
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, iconsTexs[i]);
             GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, iconsBmps[i], GLES20.GL_UNSIGNED_BYTE, 0);
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
@@ -859,13 +778,13 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         }
 
         // vbo
-        float[] data = new float[] {
-                0,  1,  0, 0, // top left
-                1,  1,  1, 0, // top right
-                0,  0,  0, 1, // bottom left
-                1,  1,  1, 0, // top right
-                0,  0,  0, 1, // bottom left
-                1,  0,  1, 1  // bottom right
+        float[] data = new float[]{
+                0, 1, 0, 0, // top left
+                1, 1, 1, 0, // top right
+                0, 0, 0, 1, // bottom left
+                1, 1, 1, 0, // top right
+                0, 0, 0, 1, // bottom left
+                1, 0, 1, 1  // bottom right
         };
 
         ByteBuffer bb = ByteBuffer.allocateDirect(data.length * 4);
@@ -881,34 +800,34 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         // shaders
         final String FRAG_SHADER =
                 "#ifdef GL_ES\n" +
-                "precision mediump float;\n" +
-                "#endif\n" +
-                "\n" +
-                "uniform sampler2D texture;\n" +
-                "uniform mat4 p_color;\n" +
-                "varying vec2 texCoord;\n" +
-                "\n" +
-                "void main()\n" +
-                "{\n" +
-                "gl_FragColor = texture2D(texture, texCoord) * p_color;\n" +
-                "}\n";
+                        "precision mediump float;\n" +
+                        "#endif\n" +
+                        "\n" +
+                        "uniform sampler2D texture;\n" +
+                        "uniform mat4 p_color;\n" +
+                        "varying vec2 texCoord;\n" +
+                        "\n" +
+                        "void main()\n" +
+                        "{\n" +
+                        "gl_FragColor = texture2D(texture, texCoord) * p_color;\n" +
+                        "}\n";
 
         final String VERT_SHADER =
                 "#ifdef GL_ES\n" +
-                "precision mediump float;\n" +
-                "#endif\n" +
-                "\n" +
-                "attribute vec2 a_position_0;\n" +
-                "attribute vec2 a_texcoord_0;\n" +
-                "attribute vec2 p_scale;\n" +
-                "attribute vec2 p_pos;\n" +
-                "varying vec2 texCoord;\n" +
-                "\n" +
-                "void main()\n" +
-                "{\n" +
-                "texCoord = a_texcoord_0;\n" +
-                "gl_Position = vec4(a_position_0 * p_scale + p_pos, 0.0, 1.0);\n" +
-                "}\n";
+                        "precision mediump float;\n" +
+                        "#endif\n" +
+                        "\n" +
+                        "attribute vec2 a_position_0;\n" +
+                        "attribute vec2 a_texcoord_0;\n" +
+                        "attribute vec2 p_scale;\n" +
+                        "attribute vec2 p_pos;\n" +
+                        "varying vec2 texCoord;\n" +
+                        "\n" +
+                        "void main()\n" +
+                        "{\n" +
+                        "texCoord = a_texcoord_0;\n" +
+                        "gl_Position = vec4(a_position_0 * p_scale + p_pos, 0.0, 1.0);\n" +
+                        "}\n";
 
         program = GLES20.glCreateProgram();
 
@@ -937,10 +856,8 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         needUnbind = true;
     }
 
-    private void unbindResources()
-    {
-        if (needUnbind)
-        {
+    private void unbindResources() {
+        if (needUnbind) {
             GLES20.glDeleteTextures(iconsTexs.length, iconsTexs, 0);
             GLES20.glDeleteProgram(program);
             GLES20.glDeleteBuffers(1, vbo, 0);
@@ -948,16 +865,14 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         }
     }
 
-    private static int compileShader(String source, int type)
-    {
+    private static int compileShader(String source, int type) {
         int handle = GLES20.glCreateShader(type);
         GLES20.glShaderSource(handle, source);
         GLES20.glCompileShader(handle);
         return handle;
     }
 
-    private void drawIcon(int id, int x, int y, int w, int h, IconStyle style)
-    {
+    private void drawIcon(int id, int x, int y, int w, int h, IconStyle style) {
         GLES20.glUseProgram(program);
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
@@ -966,17 +881,16 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
-        float ws = (float)w * 2 / canvasWidth;
-        float hs = (float)h * 2 / canvasHeight;
+        float ws = (float) w * 2 / canvasWidth;
+        float hs = (float) h * 2 / canvasHeight;
 
-        float xp = (float)(x - canvasWidth / 2) * 2 / canvasWidth;
-        float yp = (float)(canvasHeight / 2 - y - h) * 2 / canvasHeight;
+        float xp = (float) (x - canvasWidth / 2) * 2 / canvasWidth;
+        float yp = (float) (canvasHeight / 2 - y - h) * 2 / canvasHeight;
 
         GLES20.glVertexAttrib2f(scaleAttr, ws, hs);
         GLES20.glVertexAttrib2f(posAttr, xp, yp);
 
-        switch (style)
-        {
+        switch (style) {
             case NORMAL:
                 GLES20.glUniformMatrix4fv(colorAttr, 1, false, STYLE_NORMAL, 0);
                 break;

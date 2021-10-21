@@ -13,7 +13,7 @@ extern "C" {
  * Signature: ()V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_start
-  (JNIEnv *, jclass);
+        (JNIEnv *, jclass);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative
@@ -21,7 +21,7 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_start
  * Signature: ()V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_stop
-  (JNIEnv *, jclass);
+        (JNIEnv *, jclass);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative
@@ -29,7 +29,7 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_stop
  * Signature: ()V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_suspend
-  (JNIEnv *, jclass);
+        (JNIEnv *, jclass);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative
@@ -37,7 +37,7 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_suspend
  * Signature: ()V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_resume
-  (JNIEnv *, jclass);
+        (JNIEnv *, jclass);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative
@@ -45,7 +45,7 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_resume
  * Signature: ()V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_update
-  (JNIEnv *, jclass);
+        (JNIEnv *, jclass);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative
@@ -53,7 +53,7 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_update
  * Signature: (FFF)V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_draw
-  (JNIEnv *, jclass, jfloat, jfloat, jfloat);
+        (JNIEnv *, jclass, jfloat, jfloat, jfloat);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative
@@ -61,7 +61,7 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_draw
  * Signature: ()V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamStart
-  (JNIEnv *, jclass);
+        (JNIEnv *, jclass);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative
@@ -69,7 +69,7 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamStart
  * Signature: ()V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamStop
-  (JNIEnv *, jclass);
+        (JNIEnv *, jclass);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative
@@ -77,7 +77,7 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamStop
  * Signature: (Ljava/nio/ByteBuffer;I)Z
  */
 JNIEXPORT jint JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamVideoPacket
-  (JNIEnv *, jclass, jobject, jint);
+        (JNIEnv *, jclass, jobject, jint);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative
@@ -85,7 +85,7 @@ JNIEXPORT jint JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamVideoPacket
  * Signature: (Ljava/nio/ByteBuffer;I)Z
  */
 JNIEXPORT jboolean JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamAudioPacket
-  (JNIEnv *, jclass, jobject, jint);
+        (JNIEnv *, jclass, jobject, jint);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative
@@ -93,7 +93,7 @@ JNIEXPORT jboolean JNICALL Java_com_kvaster_mobell_MxpegNative_onStreamAudioPack
  * Signature: (II)V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_canvasSizeChanged
-  (JNIEnv *, jclass, jint, jint);
+        (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative
@@ -101,7 +101,7 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_canvasSizeChanged
  * Signature: (Lcom/kvaster/mobell/AudioRecorderListener;)V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_startRecord
-  (JNIEnv *, jclass, jobject);
+        (JNIEnv *, jclass, jobject);
 
 /*
  * Class:     com_kvaster_mobell_MxpegNative
@@ -109,7 +109,7 @@ JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_startRecord
  * Signature: ()V
  */
 JNIEXPORT void JNICALL Java_com_kvaster_mobell_MxpegNative_stopRecord
-  (JNIEnv *, jclass);
+        (JNIEnv *, jclass);
 
 #ifdef __cplusplus
 }

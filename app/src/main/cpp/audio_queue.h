@@ -6,11 +6,9 @@
 #include <string.h>
 #include <atomic>
 
-class AudioBuffer
-{
+class AudioBuffer {
 public:
-    AudioBuffer(size_t capacity)
-    {
+    AudioBuffer(size_t capacity) {
         buffer = capacity == 0 ? nullptr : malloc(capacity);
         this->capacity = capacity;
         this->size = 0;
@@ -18,15 +16,12 @@ public:
         next = nullptr;
     }
 
-    ~AudioBuffer()
-    {
+    ~AudioBuffer() {
         free(buffer);
     }
 
-    void set(void* data, size_t size)
-    {
-        if (capacity < size)
-        {
+    void set(void *data, size_t size) {
+        if (capacity < size) {
             buffer = buffer ? realloc(buffer, size) : malloc(size);
             capacity = size;
         }
@@ -35,27 +30,23 @@ public:
         memcpy(buffer, data, size);
     }
 
-    void* buffer;
+    void *buffer;
     size_t capacity;
     size_t size; // audio data size
 
-    AudioBuffer* next;
+    AudioBuffer *next;
 };
 
-class AudioBufferStack
-{
+class AudioBufferStack {
 public:
-    AudioBufferStack()
-    {
+    AudioBufferStack() {
         head = nullptr;
     }
 
-    ~AudioBufferStack()
-    {
-        AudioBuffer* r = head;
-        while (r)
-        {
-            AudioBuffer* n = r->next;
+    ~AudioBufferStack() {
+        AudioBuffer *r = head;
+        while (r) {
+            AudioBuffer *n = r->next;
             delete r;
             r = n;
         }
@@ -63,9 +54,8 @@ public:
         head = nullptr;
     }
 
-    AudioBuffer* get()
-    {
-        AudioBuffer* b = head;
+    AudioBuffer *get() {
+        AudioBuffer *b = head;
 
         if (!b)
             return nullptr;
@@ -77,12 +67,10 @@ public:
         return b;
     }
 
-    void put(AudioBuffer* b)
-    {
-        AudioBuffer* r = head;
+    void put(AudioBuffer *b) {
+        AudioBuffer *r = head;
 
-        while (true)
-        {
+        while (true) {
             b->next = r;
             if (head.compare_exchange_strong(r, b))
                 break;
@@ -90,24 +78,20 @@ public:
     }
 
 private:
-    std::atomic<AudioBuffer*> head;
+    std::atomic<AudioBuffer *> head;
 };
 
-class AudioBufferQueue
-{
+class AudioBufferQueue {
 public:
-    AudioBufferQueue()
-    {
+    AudioBufferQueue() {
         head = nullptr;
         tail = nullptr;
     }
 
-    ~AudioBufferQueue()
-    {
-        AudioBuffer* r = head;
-        while (r)
-        {
-            AudioBuffer* n = r->next;
+    ~AudioBufferQueue() {
+        AudioBuffer *r = head;
+        while (r) {
+            AudioBuffer *n = r->next;
             delete r;
             r = n;
         }
@@ -116,17 +100,13 @@ public:
         tail = nullptr;
     }
 
-    void put(AudioBuffer* b)
-    {
+    void put(AudioBuffer *b) {
         lock();
 
-        if (tail)
-        {
+        if (tail) {
             tail->next = b;
             tail = b;
-        }
-        else
-        {
+        } else {
             tail = b;
             head = b;
         }
@@ -134,14 +114,12 @@ public:
         unlock();
     }
 
-    AudioBuffer* get()
-    {
+    AudioBuffer *get() {
         lock();
 
-        AudioBuffer* b = head;
+        AudioBuffer *b = head;
 
-        if (b)
-        {
+        if (b) {
             head = b->next;
             if (!head)
                 tail = nullptr;
@@ -155,19 +133,17 @@ public:
     }
 
 private:
-    AudioBuffer* head;
-    AudioBuffer* tail;
+    AudioBuffer *head;
+    AudioBuffer *tail;
 
-    std::atomic_bool acquired { false };
+    std::atomic_bool acquired{false};
 
-    void lock()
-    {
+    void lock() {
         while (acquired.exchange(true, std::memory_order_relaxed));
         std::atomic_thread_fence(std::memory_order_acquire);
     }
 
-    void unlock()
-    {
+    void unlock() {
         std::atomic_thread_fence(std::memory_order_release);
         acquired.store(false, std::memory_order_relaxed);
     }

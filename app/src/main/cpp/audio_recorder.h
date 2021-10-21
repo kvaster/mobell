@@ -6,23 +6,23 @@
 
 #include "audio_queue.h"
 
-typedef void (AudioRecorderListener)(AudioBuffer*);
+typedef void (AudioRecorderListener)(AudioBuffer *);
 
-class AudioRecorder
-{
+class AudioRecorder {
 public:
-    AudioRecorder(AudioRecorderListener* callback);
+    AudioRecorder(AudioRecorderListener *callback);
 
     ~AudioRecorder();
 
     void start();
+
     void stop();
 
 private:
     static const int QUEUE_BUFFERS = 32;
     static const int QUEUE_BUFFER_SIZE = 512;
 
-    AudioRecorderListener* callback;
+    AudioRecorderListener *callback;
 
     SLObjectItf audioEngineObj;
     SLEngineItf audioEngine;

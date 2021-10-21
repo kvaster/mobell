@@ -6,11 +6,9 @@ import android.view.View;
 import mehdi.sakout.aboutpage.AboutPage;
 import mehdi.sakout.aboutpage.Element;
 
-public class AboutActivity extends Activity
-{
+public class AboutActivity extends Activity {
     @Override
-    protected void onCreate(Bundle savedInstanceState)
-    {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         View aboutPage = new AboutPage(this)

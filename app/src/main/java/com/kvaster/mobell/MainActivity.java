@@ -18,35 +18,29 @@ import android.widget.FrameLayout;
 
 import static com.kvaster.mobell.AndroidUtils.TAG;
 
-public class MainActivity extends Activity
-{
+public class MainActivity extends Activity {
     private GlView view;
     private MxpegApp app;
 
-    private ServiceConnection connection = new ServiceConnection()
-    {
+    private final ServiceConnection connection = new ServiceConnection() {
         @Override
-        public void onServiceConnected(ComponentName name, IBinder service)
-        {
-            MobotixEventService s = ((MobotixEventService.LocalBinder)service).getService();
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            MobotixEventService s = ((MobotixEventService.LocalBinder) service).getService();
             app.onServiceBind(s);
         }
 
         @Override
-        public void onServiceDisconnected(ComponentName name)
-        {
+        public void onServiceDisconnected(ComponentName name) {
             // do nothing
         }
     };
 
-    public MainActivity()
-    {
+    public MainActivity() {
         super();
     }
 
     @Override
-    public void onCreate(Bundle savedInstanceState)
-    {
+    public void onCreate(Bundle savedInstanceState) {
         Log.i(TAG, "On create");
 
         super.onCreate(savedInstanceState);
@@ -69,29 +63,23 @@ public class MainActivity extends Activity
     }
 
     @Override
-    protected void onDestroy()
-    {
+    protected void onDestroy() {
         Log.i(TAG, "On destroy");
 
-        try
-        {
+        try {
             view.stop();
 
             super.onDestroy();
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             onCatch(t);
         }
     }
 
     @Override
-    protected void onStart()
-    {
+    protected void onStart() {
         Log.i(TAG, "On start");
 
-        try
-        {
+        try {
             super.onStart();
 
             MobotixEventService.startServiceIfEnabled(this);
@@ -99,70 +87,58 @@ public class MainActivity extends Activity
             Intent service = new Intent(this, MobotixEventService.class);
             bindService(service, connection, BIND_AUTO_CREATE);
 
-            if (checkPermissions())
+            if (checkPermissions()) {
                 app.allowRecording();
+            }
 
             view.resume();
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             onCatch(t);
         }
     }
 
     @Override
-    protected void onStop()
-    {
+    protected void onStop() {
         Log.i(TAG, "On stop");
 
-        try
-        {
+        try {
             view.suspend();
 
             app.onServiceUnbind();
             unbindService(connection);
 
-            if (!AndroidUtils.getSharedPreferences(this).getBoolean(AppPreferences.SERVICE_BACKGROUND, false))
+            if (!AndroidUtils.getSharedPreferences(this).getBoolean(AppPreferences.SERVICE_BACKGROUND, false)) {
                 MobotixEventService.stopService(this);
+            }
 
             super.onStop();
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             onCatch(t);
         }
     }
 
     @Override
-    protected void onResume()
-    {
+    protected void onResume() {
         Log.i(TAG, "On resume");
 
-        try
-        {
+        try {
             super.onResume();
 
             view.unpause();
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             onCatch(t);
         }
     }
 
     @Override
-    protected void onPause()
-    {
+    protected void onPause() {
         Log.i(TAG, "On pause");
 
-        try
-        {
+        try {
             view.pause();
 
             super.onPause();
-        }
-        catch (Throwable t)
-        {
+        } catch (Throwable t) {
             onCatch(t);
         }
     }
@@ -173,30 +149,25 @@ public class MainActivity extends Activity
 //        view.onBackButtonPressed();
 //    }
 
-    private void onCatch(Throwable t)
-    {
+    private void onCatch(Throwable t) {
         // TODO process error
     }
 
-    private boolean checkPermissions()
-    {
+    private boolean checkPermissions() {
         String[] permissions = {
                 Manifest.permission.RECORD_AUDIO,
         };
 
         boolean req = false;
 
-        for (String p : permissions)
-        {
-            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED)
-            {
+        for (String p : permissions) {
+            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
                 req = true;
                 break;
             }
         }
 
-        if (req)
-        {
+        if (req) {
             ActivityCompat.requestPermissions(this, permissions, 0);
             return false;
         }
@@ -205,16 +176,18 @@ public class MainActivity extends Activity
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String permissions[], @NonNull int[] grantResults)
-    {
+    public void onRequestPermissionsResult(
+            int requestCode,
+            @NonNull String[] permissions,
+            @NonNull int[] grantResults
+    ) {
         int count = permissions.length;
 
-        for (int i = 0; i < count; i++)
-        {
-            if (Manifest.permission.RECORD_AUDIO.equals(permissions[i]))
-            {
-                if (grantResults[i] == PackageManager.PERMISSION_GRANTED)
+        for (int i = 0; i < count; i++) {
+            if (Manifest.permission.RECORD_AUDIO.equals(permissions[i])) {
+                if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
                     app.allowRecording();
+                }
             }
         }
     }

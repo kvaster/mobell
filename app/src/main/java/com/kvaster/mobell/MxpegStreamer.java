@@ -22,14 +22,16 @@ import static com.kvaster.mobell.JsonUtils.ja;
 import static com.kvaster.mobell.JsonUtils.je;
 import static com.kvaster.mobell.JsonUtils.jo;
 
-public abstract class MxpegStreamer
-{
-    public interface Listener
-    {
+public abstract class MxpegStreamer {
+    public interface Listener {
         void onStreamStart();
+
         void onStreamStop();
+
         boolean onStreamVideoPacket(ByteBuffer packet, int size);
+
         boolean onStreamAudioPacket(ByteBuffer packet, int size);
+
         void onMobotixEvent(JSONObject event);
     }
 
@@ -55,12 +57,13 @@ public abstract class MxpegStreamer
 
     private Socket socket;
 
-    protected MxpegStreamer(Listener listener,
-                            int bufferSize,
-                            int ringBufferSize,
-                            int readTimeout,
-                            long reconnectDelay)
-    {
+    protected MxpegStreamer(
+            Listener listener,
+            int bufferSize,
+            int ringBufferSize,
+            int readTimeout,
+            long reconnectDelay
+    ) {
         buffer = ByteBuffer.allocateDirect(bufferSize);
 
         this.listener = listener;
@@ -71,96 +74,81 @@ public abstract class MxpegStreamer
     }
 
     protected abstract String getHost();
+
     protected abstract int getPort();
+
     protected abstract String getLogin();
+
     protected abstract String getPassword();
 
-    public synchronized void start()
-    {
-        if (thread == null)
-        {
+    public synchronized void start() {
+        if (thread == null) {
             keepRunning = true;
             thread = new Thread(this::run);
             thread.start();
         }
     }
 
-    public void stop()
-    {
+    public void stop() {
         // ugly synchronization
-        synchronized (this)
-        {
-            if (thread == null)
+        synchronized (this) {
+            if (thread == null) {
                 return;
+            }
 
             keepRunning = false;
             notifyAll();
             closeSocket();
         }
 
-        try
-        {
+        try {
             thread.join();
-        }
-        catch (InterruptedException ie)
-        {
+        } catch (InterruptedException ie) {
             // do nothing
         }
 
-        synchronized (this)
-        {
+        synchronized (this) {
             thread = null;
         }
     }
 
-    private void closeSocket()
-    {
-        try
-        {
-            if (socket != null)
+    private void closeSocket() {
+        try {
+            if (socket != null) {
                 socket.close();
-        }
-        catch (IOException e)
-        {
+            }
+        } catch (IOException e) {
             // do nothing
         }
     }
 
-    public synchronized void forceReconnectIfNeed()
-    {
+    public synchronized void forceReconnectIfNeed() {
         notifyAll();
     }
 
-    public synchronized void forceReconnect()
-    {
+    public synchronized void forceReconnect() {
         closeSocket();
     }
 
-    private void write(byte[] data)
-    {
+    private void write(byte[] data) {
         packets.add(data);
     }
 
-    private void write(String data)
-    {
+    private void write(String data) {
         write(data.getBytes());
     }
 
-    private synchronized Socket createSocket()
-    {
+    private synchronized Socket createSocket() {
         return socket = new Socket();
     }
 
-    private void run()
-    {
-        while (keepRunning)
-        {
+    private void run() {
+        while (keepRunning) {
             boolean connected = false;
             Thread wt = null;
             final Socket socket = createSocket();
 
-            try
-            {
+            try {
                 InetAddress ia = InetAddress.getByName(getHost());
                 socket.connect(new InetSocketAddress(ia, getPort()), 1000);
 
@@ -168,37 +156,30 @@ public abstract class MxpegStreamer
                 socket.setTcpNoDelay(true);
                 socket.setKeepAlive(true);
 
-                try (InputStream is = socket.getInputStream(); OutputStream os = socket.getOutputStream())
-                {
+                try (InputStream is = socket.getInputStream(); OutputStream os = socket.getOutputStream()) {
                     packets.clear();
 
                     wt = new Thread(() -> {
-                        try
-                        {
-                            while (keepRunning)
-                            {
+                        try {
+                            while (keepRunning) {
                                 byte[] data = packets.take();
 
-                                if (data == END_MARKER)
+                                if (data == END_MARKER) {
                                     break;
+                                }
 
                                 os.write(data);
                                 os.flush();
                             }
-                        }
-                        catch (IOException | InterruptedException e)
-                        {
+                        } catch (IOException | InterruptedException e) {
                             // write error
                             Log.w(TAG, "write error", e);
                         }
 
-                        try
-                        {
+                        try {
                             socket.close();
                             packets.clear();
-                        }
-                        catch (IOException e)
-                        {
+                        } catch (IOException e) {
                             // do nothing
                         }
                     });
@@ -213,66 +194,58 @@ public abstract class MxpegStreamer
 
                     int s = r.pos();
                     //noinspection StatementWithEmptyBody
-                    while (r.next() != 0x0d);
+                    while (r.next() != 0x0d) {
+                        ;
+                    }
 
                     String codeLine = new String(r.get(s, r.pos()));
-                    if (Integer.parseInt(codeLine.split(" ")[1]) != 200)
+                    if (Integer.parseInt(codeLine.split(" ")[1]) != 200) {
                         throw new IOException();
+                    }
 
                     idGenerator.set(10); // reset id generator
                     listener.onStreamStart();
                     connected = true;
 
-                    while (keepRunning)
+                    while (keepRunning) {
                         readPacket(r);
+                    }
                 }
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 // error, do nothing
                 Log.w(TAG, "read error", e);
-            }
-            finally
-            {
-                if (connected)
+            } finally {
+                if (connected) {
                     listener.onStreamStop();
-
-                try
-                {
-                    socket.close();
                 }
-                catch (IOException e)
-                {
+
+                try {
+                    socket.close();
+                } catch (IOException e) {
                     // do nothing
                 }
 
-                synchronized (this)
-                {
+                synchronized (this) {
                     this.socket = null;
                 }
 
                 packets.add(END_MARKER);
-                try
-                {
-                    if (wt != null)
+                try {
+                    if (wt != null) {
                         wt.join();
-                }
-                catch (InterruptedException e)
-                {
+                    }
+                } catch (InterruptedException e) {
                     // do nothing
                 }
             }
 
-            try
-            {
-                synchronized (this)
-                {
-                    if (keepRunning)
+            try {
+                synchronized (this) {
+                    if (keepRunning) {
                         wait(reconnectDelay);
+                    }
                 }
-            }
-            catch (InterruptedException ie)
-            {
+            } catch (InterruptedException ie) {
                 // do nothing here
             }
         }
@@ -291,13 +264,13 @@ public abstract class MxpegStreamer
     private static final int APP12 = 0xEC;
     private static final int APP13 = 0xED;
 
-    private void readPacket(RingBufferReader r) throws IOException
-    {
+    private void readPacket(RingBufferReader r) throws IOException {
         //noinspection StatementWithEmptyBody
-        while (r.next() != 0xff) ;
+        while (r.next() != 0xff) {
+            ;
+        }
 
-        switch (r.next())
-        {
+        switch (r.next()) {
             case SOI:
                 readVideo(r);
                 break;
@@ -319,8 +292,7 @@ public abstract class MxpegStreamer
         }
     }
 
-    private int getPacket(int start, RingBufferReader r, ByteBuffer b) throws IOException
-    {
+    private int getPacket(int start, RingBufferReader r, ByteBuffer b) throws IOException {
         int end = r.pos();
 
         b.clear();
@@ -333,44 +305,43 @@ public abstract class MxpegStreamer
         return size;
     }
 
-    private void readVideo(RingBufferReader r) throws IOException
-    {
+    private void readVideo(RingBufferReader r) throws IOException {
         // include SOI marker
         int start = r.pos() - 2;
 
-        while (true)
-        {
+        while (true) {
             //noinspection StatementWithEmptyBody
-            while (r.next() != 0xff);
+            while (r.next() != 0xff) {
+                ;
+            }
 
             int marker = r.next();
 
-            if (marker == EOI)
+            if (marker == EOI) {
                 break;
+            }
 
             if (marker != SOF0
                     && marker != SOS
                     && marker != APP0
                     && marker != COM
                     && marker != DQT
-                    && marker != DHT)
-            {
+                    && marker != DHT) {
                 throw new IOException();
             }
 
             int len = (r.next() << 8) | r.next();
             r.move(len - 2);
 
-            if (marker == SOS)
-            {
-                while (true)
-                {
+            if (marker == SOS) {
+                while (true) {
                     //noinspection StatementWithEmptyBody
-                    while (r.next() != 0xff);
+                    while (r.next() != 0xff) {
+                        ;
+                    }
 
                     marker = r.next();
-                    if (marker != 0)
-                    {
+                    if (marker != 0) {
                         r.move(-2);
                         break;
                     }
@@ -379,56 +350,58 @@ public abstract class MxpegStreamer
         }
 
         int size = getPacket(start, r, buffer);
-        if (!listener.onStreamVideoPacket(buffer, size))
+        if (!listener.onStreamVideoPacket(buffer, size)) {
             throw new IOException("Error decoding video packet");
+        }
     }
 
-    private void readAudioAlaw(RingBufferReader r) throws IOException
-    {
+    private void readAudioAlaw(RingBufferReader r) throws IOException {
         int len = (r.next() << 8) | r.next();
 
         // just skip this, we're playing ALL bytes we have and we're plating them right NOW
         int duration = r.next() | (r.next() << 8) | (r.next() << 16) | (r.next() << 24);
         long timestamp = 0;
-        for (int i = 0; i < 8; i++)
-            timestamp |= ((long)r.next()) << (i * 8);
+        for (int i = 0; i < 8; i++) {
+            timestamp |= ((long) r.next()) << (i * 8);
+        }
 
         int start = r.pos();
 
         r.move(len - 2 - 12);
 
         int size = getPacket(start, r, buffer);
-        if (!listener.onStreamAudioPacket(buffer, size))
+        if (!listener.onStreamAudioPacket(buffer, size)) {
             throw new IOException("Error decoding alaw audio packet");
+        }
     }
 
-    private void readAudioPcm(RingBufferReader r) throws IOException
-    {
+    private void readAudioPcm(RingBufferReader r) throws IOException {
         int len = (r.next() << 8) | r.next();
 
         int start = r.pos() + 20;
 
-        if (r.next() != 'M')
+        if (r.next() != 'M') {
             throw new IOException();
-        if (r.next() != 'X')
+        }
+        if (r.next() != 'X') {
             throw new IOException();
+        }
 
         int type = r.next();
 
         r.move(len - 2 - 3);
 
-        if (type == 'A')
-        {
+        if (type == 'A') {
             int size = getPacket(start, r, buffer);
-            if (!listener.onStreamAudioPacket(buffer, size))
+            if (!listener.onStreamAudioPacket(buffer, size)) {
                 throw new IOException("Error decoding pcm audio packet");
+            }
         }
 
         r.cut(r.pos());
     }
 
-    private void readEvents(RingBufferReader r) throws IOException
-    {
+    private void readEvents(RingBufferReader r) throws IOException {
         int len = (r.next() << 8) | r.next();
 
         int start = r.pos();
@@ -438,35 +411,29 @@ public abstract class MxpegStreamer
         byte[] jsonData = r.get(start, end);
         r.cut(end);
 
-        try
-        {
+        try {
             listener.onMobotixEvent(new JSONObject(new String(jsonData)));
-        }
-        catch (JSONException e)
-        {
+        } catch (JSONException e) {
             throw new IOException(e);
         }
     }
 
-    public void startAudio()
-    {
+    public void startAudio() {
         write(AUDIO_START);
     }
 
-    public void stopAudio()
-    {
+    public void stopAudio() {
         write(AUDIO_STOP);
     }
 
-    public void sendAudio(byte[] data)
-    {
+    public void sendAudio(byte[] data) {
         byte[] packet = new byte[AUDIO_DATA.length + data.length];
         System.arraycopy(AUDIO_DATA, 0, packet, 0, AUDIO_DATA.length);
         System.arraycopy(data, 0, packet, AUDIO_DATA.length, data.length);
 
         int len = packet.length - 2;
-        packet[2] = (byte)(len >> 8);
-        packet[3] = (byte)len;
+        packet[2] = (byte) (len >> 8);
+        packet[3] = (byte) len;
 
         write(packet);
     }
@@ -490,8 +457,7 @@ public abstract class MxpegStreamer
         "{\"id\":25,\"method\":\"audiooutput\",\"params\":[\"pcm16\"]}",
         //"{\"id\":26,\"method\":\"add_device\",\"params\":[\"00:00:00:00:00:00\",[32800],\"MoBell+00:00:00:00:00:00\"]}",
      */
-    private void writeCmd(String cmd)
-    {
+    private void writeCmd(String cmd) {
         byte[] data = cmd.getBytes();
         data = Arrays.copyOf(data, data.length + 2);
         data[data.length - 2] = 0x0a;
@@ -499,33 +465,27 @@ public abstract class MxpegStreamer
         write(data);
     }
 
-    public int nextId()
-    {
+    public int nextId() {
         return idGenerator.getAndIncrement();
     }
 
-    public void sendCmd(String method)
-    {
+    public void sendCmd(String method) {
         sendCmd(nextId(), method);
     }
 
-    public void sendCmd(int id, String method)
-    {
+    public void sendCmd(int id, String method) {
         writeCmd(jo(je("id", id), je("method", method)).toString());
     }
 
-    public void sendCmd(String method, Object params)
-    {
+    public void sendCmd(String method, Object params) {
         sendCmd(nextId(), method, params);
     }
 
-    public void sendCmd(int id, String method, Object params)
-    {
+    public void sendCmd(int id, String method, Object params) {
         writeCmd(jo(je("id", id), je("method", method), je("params", params)).toString());
     }
 
-    public void startVideo()
-    {
+    public void startVideo() {
         sendCmd("mode", ja("mxpeg"));
         sendCmd("live", ja("false"));
         sendCmd("audiooutput", ja("pcm16"));

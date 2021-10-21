@@ -3,7 +3,7 @@
 
 extern "C"
 {
-    #include <libavcodec/avcodec.h>
+#include <libavcodec/avcodec.h>
 }
 
 #include <GLES2/gl2.h>
@@ -17,24 +17,29 @@ extern "C"
 
 #include "audio_queue.h"
 
-class MxpegRenderer
-{
+class MxpegRenderer {
 public:
     MxpegRenderer();
+
     ~MxpegRenderer();
 
     void suspend();
+
     void resume();
 
     void update();
+
     void draw(float scale, float panX, float panY);
 
     void canvasSizeChanged(int width, int height);
 
     void onStreamStart(int audioType);
+
     void onStreamStop();
-    int onStreamVideoPacket(uint8_t* data, size_t size);
-    bool onStreamAudioPacket(uint8_t* data, size_t size);
+
+    int onStreamVideoPacket(uint8_t *data, size_t size);
+
+    bool onStreamAudioPacket(uint8_t *data, size_t size);
 
     static const int AUDIO_ALAW = 0;
     static const int AUDIO_PCM16 = 1;
@@ -64,18 +69,19 @@ private:
     pthread_mutex_t videoMutex;
 
     void resetGl();
+
     void updateTextures();
 
     // FFmpeg video
-    AVCodec* videoCodec;
-    AVCodecContext* videoCodecCtx;
-    AVFrame* videoFrame;
-    AVFrame* videoWorkFrame;
+    AVCodec *videoCodec;
+    AVCodecContext *videoCodecCtx;
+    AVFrame *videoFrame;
+    AVFrame *videoWorkFrame;
 
     // FFmpeg audio
-    AVCodec* audioCodec;
-    AVCodecContext* audioCodecCtx;
-    AVFrame* audioWorkFrame;
+    AVCodec *audioCodec;
+    AVCodecContext *audioCodecCtx;
+    AVFrame *audioWorkFrame;
 
     AudioBufferStack audioBuffers;
     AudioBufferQueue playingAudioBuffers;

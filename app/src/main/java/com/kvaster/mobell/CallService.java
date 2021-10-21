@@ -1,9 +1,7 @@
 package com.kvaster.mobell;
 
-public interface CallService
-{
-    enum CallStatus
-    {
+public interface CallService {
+    enum CallStatus {
         DISCONNECTED,
         IDLE,
         UNACCEPTED,
@@ -11,8 +9,7 @@ public interface CallService
         ACCEPTED
     }
 
-    interface Listener
-    {
+    interface Listener {
         void onCallStatus(CallStatus status);
     }
 

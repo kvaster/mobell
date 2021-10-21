@@ -2,8 +2,7 @@ package com.kvaster.mobell;
 
 import android.view.MotionEvent;
 
-public interface GlApp
-{
+public interface GlApp {
     void start();
     void stop();
 
