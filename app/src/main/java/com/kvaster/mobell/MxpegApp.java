@@ -1,5 +1,10 @@
 package com.kvaster.mobell;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
+import java.util.Objects;
+
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -8,11 +13,8 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.media.AudioManager;
-import android.media.MediaPlayer;
-import android.net.Uri;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
-import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -21,11 +23,6 @@ import android.view.ScaleGestureDetector;
 import android.view.SoundEffectConstants;
 import android.view.WindowManager;
 import org.json.JSONObject;
-
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
-import java.util.Objects;
 
 import static com.kvaster.mobell.AndroidUtils.TAG;
 
@@ -57,7 +54,6 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
     private final SharedPreferences prefs;
     private final AudioManager audioManager;
-    private MediaPlayer mediaPlayer;
 
     private GlView view;
 
@@ -167,46 +163,6 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         this.view = view;
     }
 
-    private synchronized void playRingtone() {
-        try {
-            try {
-                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
-                    mediaPlayer.stop();
-                }
-            } catch (Exception e) {
-                // do nothing
-            }
-
-            String ringtone = prefs.getString(AppPreferences.RINGTONE, "");
-            if (TextUtils.isEmpty(ringtone)) {
-                mediaPlayer = null;
-            } else {
-                mediaPlayer = new MediaPlayer();
-                mediaPlayer.setDataSource(ctx, Uri.parse(ringtone));
-                mediaPlayer.setAudioStreamType(AudioManager.STREAM_RING);
-
-                mediaPlayer.setLooping(true);
-                mediaPlayer.prepare();
-                mediaPlayer.start();
-            }
-        } catch (Exception e) {
-            // do nothing ?
-            mediaPlayer = null;
-        }
-    }
-
-    private synchronized void stopRingtone() {
-        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
-            try {
-                mediaPlayer.stop();
-            } catch (Exception e) {
-                // do nothing
-            }
-
-            mediaPlayer = null;
-        }
-    }
-
     public synchronized void onServiceBind(CallService service) {
         callService = service;
         deferredCallService.perform(service);
@@ -220,7 +176,6 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         scale = 1;
         panX = panY = 0;
     }
-
 
     public synchronized void allowRecording() {
         recordingEnabled = true;
@@ -278,6 +233,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
 
     @Override
     public void suspend() {
+        callService.stopCall();
         callService.removeListener(this);
 
         needResume = true; // sometimes we can receive canvasSizeChanged before resume...
@@ -506,7 +462,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     }, Icon.DEFAULT_SIZE);
 
     private synchronized void setActions(
-            boolean volumeEnabled, boolean micEnabled, boolean ringtone, Action... actions
+            boolean volumeEnabled, boolean micEnabled, boolean isRing, Action... actions
     ) {
         this.volumeEnabled = volumeEnabled;
 
@@ -522,16 +478,14 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
             a.resetSize();
         }
 
-        if (ringtone) {
+        if (isRing) {
             ctx.runOnUiThread(() -> {
                 ctx.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             });
-            playRingtone();
         } else {
             ctx.runOnUiThread(() -> {
                 ctx.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             });
-            stopRingtone();
         }
 
         this.actions = actions;

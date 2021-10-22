@@ -1,5 +1,16 @@
 package com.kvaster.mobell;
 
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
 import android.annotation.SuppressLint;
 import android.app.AlarmManager;
 import android.app.Notification;
@@ -10,8 +21,8 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.media.AudioAttributes;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.Binder;
@@ -24,29 +35,14 @@ import android.text.TextUtils;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
-import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.kvaster.mobell.AndroidUtils.TAG;
 import static com.kvaster.mobell.JsonUtils.ja;
 
 public class MobotixEventService extends Service implements MxpegStreamer.Listener, CallService, SharedPreferences.OnSharedPreferenceChangeListener {
-    private static final long PING_MIN_DELAY = TimeUnit.SECONDS.toMillis(5);
-    private static final long READ_TIMEOUT = PING_MIN_DELAY + TimeUnit.SECONDS.toMillis(90);
     private static final long RECONNECT_MIN_DELAY = TimeUnit.SECONDS.toMillis(1);
     private static final long RECONNECT_MAX_DELAY = TimeUnit.SECONDS.toMillis(60);
-    private static final long CALL_TIMEOUT_DELAY = TimeUnit.SECONDS.toMillis(30);
 
     private static final String WIFI_TAG = "mobell:wifi";
     private static final String WAKE_TASK_TAG = "mobell:wake-task";
@@ -76,10 +72,17 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private final AtomicReference<PendingIntent> callTimeoutAlarm = new AtomicReference<>();
 
     private Notification serviceNotification;
+    private Notification callNotification;
 
     private final AtomicInteger actionCounter = new AtomicInteger();
 
+    private MediaPlayer mediaPlayer;
+
     private long reconnectDelay = RECONNECT_MIN_DELAY;
+
+    private volatile long keepaliveDelay;
+    private volatile long readTimeout;
+    private volatile long callTimeout;
 
     private volatile boolean isRunning = false;
 
@@ -129,7 +132,25 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
         if (AppPreferences.SERVICE_FAST_WIFI.equals(key)) {
             lockWifi();
+        } else if (AppPreferences.KEEPALIVE.equals(key)
+                || AppPreferences.READ_TIMEOUT.equals(key)
+                || AppPreferences.CALL_TIMEOUT.equals(key)) {
+            readPrefs();
         }
+    }
+
+    private long safeLong(String key, long defValue) {
+        try {
+            return Long.parseLong(prefs.getString(key, Long.toString(defValue)));
+        } catch (Exception e) {
+            return defValue;
+        }
+    }
+
+    private void readPrefs() {
+        keepaliveDelay = TimeUnit.SECONDS.toMillis(safeLong(AppPreferences.KEEPALIVE, 60));
+        readTimeout = TimeUnit.SECONDS.toMillis(keepaliveDelay + safeLong(AppPreferences.READ_TIMEOUT, 90));
+        callTimeout = TimeUnit.SECONDS.toMillis(safeLong(AppPreferences.CALL_TIMEOUT, 30));
     }
 
     @SuppressLint("WakelockTimeout")
@@ -142,8 +163,12 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         prefs = AndroidUtils.getSharedPreferences(this);
         prefs.registerOnSharedPreferenceChangeListener(this);
 
+        readPrefs();
+
         // we need to create notification for foreground service
         serviceNotification = createServiceNofitication();
+        // call notification
+        callNotification = createCallNotification();
 
         // alarms
         alarmManager = Objects.requireNonNull((AlarmManager) getSystemService(ALARM_SERVICE));
@@ -169,7 +194,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 this,
                 1024 * 4, // events packets are small - 4kb is enough
                 1024 * 16, // whole event data is small - 16kb is enough
-                (int) READ_TIMEOUT,
+                (int) readTimeout,
                 0 // we will take care of reconnections by ourselves in order to save battery life
         );
         streamer.start();
@@ -184,6 +209,10 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         Log.i(TAG, "MBE: service destroyed");
 
         cancelAction();
+        cancelCallTimeout();
+
+        dismissCallNotification();
+        stopRingtone();
 
         unlockWifi();
         taskWakeLock.release();
@@ -216,9 +245,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private Notification createServiceNofitication() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager nm = Objects.requireNonNull((NotificationManager) getSystemService(NOTIFICATION_SERVICE));
-            // TODO move to strings
-            NotificationChannel ch = new NotificationChannel(CHAN_ID_FG, "MoBell", NotificationManager.IMPORTANCE_NONE);
-            ch.setDescription("Mobell service is running"); // TODO move to strings
+            NotificationChannel ch = new NotificationChannel(CHAN_ID_FG, getString(R.string.s_notif_service), NotificationManager.IMPORTANCE_NONE);
             nm.createNotificationChannel(ch);
         }
 
@@ -226,7 +253,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         notificationIntent.setAction(Intent.ACTION_MAIN);
         notificationIntent.addCategory(Intent.CATEGORY_LAUNCHER);
 
-        PendingIntent contentIntent = PendingIntent.getActivity(getApplicationContext(), 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent contentIntent = PendingIntent.getActivity(getApplicationContext(), 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHAN_ID_FG);
         builder.setContentIntent(contentIntent)
                 .setOngoing(true)
@@ -245,7 +272,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     }
 
     private void scheduleTimeout() {
-        scheduleAction(ACTION_TIMEOUT, PING_MIN_DELAY);
+        scheduleAction(ACTION_TIMEOUT, keepaliveDelay);
     }
 
     private void fireAlarm(String action, long delayMillis, AtomicReference<PendingIntent> alarm) {
@@ -280,7 +307,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     }
 
     private void scheduleCallTimeout() {
-        fireAlarm(ACTION_CALL_TIMEOUT, CALL_TIMEOUT_DELAY, callTimeoutAlarm);
+        fireAlarm(ACTION_CALL_TIMEOUT, callTimeout, callTimeoutAlarm);
     }
 
     private void cancelCallTimeout() {
@@ -403,7 +430,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         throw new IllegalStateException();
     }
 
-    private synchronized boolean onBell(JSONObject event) throws JSONException {
+    private synchronized boolean onBell(JSONObject event) {
         String type;
 
         try {
@@ -437,26 +464,10 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         return false;
     }
 
-    private void fireCallNotification() {
-        String ringtone = prefs.getString(AppPreferences.RINGTONE, "");
-
+    private Notification createCallNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager nm = Objects.requireNonNull((NotificationManager) getSystemService(NOTIFICATION_SERVICE));
-            // TODO move to strings
-            NotificationChannel ch = new NotificationChannel(CHAN_ID_CALL, "MoBell call", NotificationManager.IMPORTANCE_HIGH);
-            ch.setDescription("Mobell call notification"); // TODO move to strings
-
-            if (!TextUtils.isEmpty(ringtone)) {
-                //Uri.parse(ringtone)
-                ch.setSound(Settings.System.DEFAULT_RINGTONE_URI, new AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build());
-            }
-
-            ch.enableLights(true);
-            ch.enableVibration(true);
-
+            NotificationChannel ch = new NotificationChannel(CHAN_ID_CALL, getString(R.string.s_notif_call), NotificationManager.IMPORTANCE_HIGH);
             nm.createNotificationChannel(ch);
         }
 
@@ -469,27 +480,25 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         PendingIntent pi = PendingIntent.getActivity(this, 0, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         NotificationCompat.Builder builder =
-                new NotificationCompat.Builder(this, CHAN_ID_CALL) // TODO chid
+                new NotificationCompat.Builder(this, CHAN_ID_CALL)
                         .setSmallIcon(R.drawable.ic_notification)
-                        .setContentTitle("Incoming call!")
+                        .setContentTitle(getString(R.string.s_ringing))
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setCategory(NotificationCompat.CATEGORY_CALL)
-                        //.setSound(Uri.parse(ringtone), AudioManager.STREAM_RING)
-                        //.setSound(Settings.System.DEFAULT_RINGTONE_URI, AudioManager.STREAM_RING)
                         .setAutoCancel(true)
-                        .setOngoing()
+                        .setSilent(true)
                         .setFullScreenIntent(pi, true);
 
-        getNotificationManager().notify(NOTIF_ID_CALL, builder.build());
+        return builder.build();
+    }
 
+    private void fireCallNotification() {
+        getNotificationManager().notify(NOTIF_ID_CALL, callNotification);
         scheduleCallTimeout();
     }
 
     private void dismissCallNotification() {
         getNotificationManager().cancel(NOTIF_ID_CALL);
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-//            getNotificationManager().deleteNotificationChannel(CHAN_ID_CALL);
-//        }
     }
 
     private NotificationManager getNotificationManager() {
@@ -523,6 +532,49 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     }
 
     //////////////////////////////////////////////
+    // Ringtone
+
+    private synchronized void playRingtone() {
+        try {
+            try {
+                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                    mediaPlayer.stop();
+                }
+            } catch (Exception e) {
+                // do nothing
+            }
+
+            String ringtone = prefs.getString(AppPreferences.RINGTONE, Settings.System.DEFAULT_RINGTONE_URI.toString());
+            if (TextUtils.isEmpty(ringtone)) {
+                mediaPlayer = null;
+            } else {
+                mediaPlayer = new MediaPlayer();
+                mediaPlayer.setDataSource(this, Uri.parse(ringtone));
+                mediaPlayer.setAudioStreamType(AudioManager.STREAM_RING);
+
+                mediaPlayer.setLooping(true);
+                mediaPlayer.prepare();
+                mediaPlayer.start();
+            }
+        } catch (Exception e) {
+            // do nothing ?
+            mediaPlayer = null;
+        }
+    }
+
+    private synchronized void stopRingtone() {
+        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+            try {
+                mediaPlayer.stop();
+            } catch (Exception e) {
+                // do nothing
+            }
+
+            mediaPlayer = null;
+        }
+    }
+
+    //////////////////////////////////////////////
     // Control calls
 
     private final Collection<Listener> listeners = new ArrayList<>();
@@ -536,9 +588,11 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
         if (status == CallStatus.UNACCEPTED) {
             callWakeLock.acquire();
+            playRingtone();
         } else {
             callWakeLock.release();
             dismissCallNotification();
+            stopRingtone();
         }
 
         for (Listener l : listeners) {

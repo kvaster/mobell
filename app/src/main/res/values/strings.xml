@@ -21,6 +21,20 @@
     <string name="p_fast_wifi_hint">Keep wifi in high performance mode in order to have less packet loss. This may affect battery life.</string>
     <string name="p_disable_optimization">Disable battery optimization</string>
     <string name="p_disable_optimization_hint">Disable battery optimizations for mobell. This is really required for stable connection on latest android. This may greatly affect battery life.</string>
+    <string name="p_keepalive">Keepalive delay</string>
+    <string name="p_keepalive_hint">Keepalive delay in seconds - maximum time between ping packets.</string>
+    <string name="p_read_timeout">Read timeout</string>
+    <string name="p_read_timeout_hint">Maximum time to keep connection in case no data.</string>
+    <string name="p_call_timeout">Call timeout</string>
+    <string name="p_call_timeout_hint">Maximum time of doorbell ring</string>
+    <string name="p_group_connection">Connection</string>
+    <string name="p_group_info">Info</string>
+    <string name="p_group_sound">Sound</string>
+    <string name="p_group_service">Background service</string>
+    <string name="p_group_expert">Expert</string>
+    <string name="s_notif_service">MoBell</string>
+    <string name="s_notif_call">MoBell Call</string>
+    <string name="s_ringing">Doorbell Ring!</string>
     <string name="title_activity_about">About MoBell</string>
     <string name="about_page_description">
         <![CDATA[

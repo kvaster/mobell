@@ -18,7 +18,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
-import androidx.preference.PreferenceScreen;
+import androidx.preference.PreferenceGroup;
 
 public class AppPreferenceActivity extends AppCompatActivity {
     private static final Map<String, Integer> hintsMap = new HashMap<>();
@@ -28,6 +28,8 @@ public class AppPreferenceActivity extends AppCompatActivity {
         hintsMap.put(AppPreferences.PORT, R.string.p_port_hint);
         hintsMap.put(AppPreferences.LOGIN, R.string.p_login_hint);
         hintsMap.put(AppPreferences.PASSWORD, R.string.p_pass_hint);
+        hintsMap.put(AppPreferences.KEEPALIVE, R.string.p_keepalive_hint);
+        hintsMap.put(AppPreferences.CALL_TIMEOUT, R.string.p_call_timeout_hint);
     }
 
     @Override
@@ -59,28 +61,33 @@ public class AppPreferenceActivity extends AppCompatActivity {
             super.onCreate(savedInstanceState);
             addPreferencesFromResource(R.xml.preferences);
 
-            SharedPreferences prefs = getPreferenceManager().getSharedPreferences();
+            walkSettings(getPreferenceScreen(), getPreferenceManager().getSharedPreferences());
+        }
 
-            PreferenceScreen ps = getPreferenceScreen();
-            final int count = ps.getPreferenceCount();
+        private void walkSettings(PreferenceGroup group, SharedPreferences prefs) {
+            final int count = group.getPreferenceCount();
             for (int i = 0; i < count; i++) {
-                Preference p = ps.getPreference(i);
-                p.setOnPreferenceChangeListener(this);
-                onPreferenceChange(ps.getPreference(i), prefs.getAll().get(p.getKey()));
+                Preference p = group.getPreference(i);
+                if (p instanceof PreferenceGroup) {
+                    walkSettings((PreferenceGroup) p, prefs);
+                } else {
+                    p.setOnPreferenceChangeListener(this);
+                    onPreferenceChange(p, prefs.getAll().get(p.getKey()));
 
-                Integer hint = hintsMap.get(p.getKey());
-                if (hint != null) {
-                    EditTextPreference ep = (EditTextPreference) p;
-                    ep.setOnBindEditTextListener(et -> et.setHint(hint));
-                }
+                    Integer hint = hintsMap.get(p.getKey());
+                    if (hint != null) {
+                        EditTextPreference ep = (EditTextPreference) p;
+                        ep.setOnBindEditTextListener(et -> et.setHint(hint));
+                    }
 
-                if (AppPreferences.DISABLE_OPTIMIZATION.equals(p.getKey())) {
-                    BattteryOptimizationPreference bp = (BattteryOptimizationPreference) p;
-                    bp.setLauncher(registerForActivityResult(
-                            new ActivityResultContracts.StartActivityForResult(),
-                            result -> {
-                                bp.updateChecked();
-                            }));
+                    if (AppPreferences.DISABLE_OPTIMIZATION.equals(p.getKey())) {
+                        BattteryOptimizationPreference bp = (BattteryOptimizationPreference) p;
+                        bp.setLauncher(registerForActivityResult(
+                                new ActivityResultContracts.StartActivityForResult(),
+                                result -> {
+                                    bp.updateChecked();
+                                }));
+                    }
                 }
             }
         }
@@ -108,6 +115,10 @@ public class AppPreferenceActivity extends AppCompatActivity {
                 }
             } else if (AppPreferences.RINGTONE.equals(pref.getKey())) {
                 String v = (String) newValue;
+
+                if (v == null) {
+                    v = Settings.System.DEFAULT_RINGTONE_URI.toString();
+                }
 
                 if (TextUtils.isEmpty(v)) {
                     pref.setSummary(R.string.p_ringtone_none);
