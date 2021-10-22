@@ -26,7 +26,9 @@
     <string name="p_read_timeout">Read timeout</string>
     <string name="p_read_timeout_hint">Maximum time to keep connection in case no data.</string>
     <string name="p_call_timeout">Call timeout</string>
-    <string name="p_call_timeout_hint">Maximum time of doorbell ring</string>
+    <string name="p_call_timeout_hint">Maximum time of doorbell ring.</string>
+    <string name="p_vibration">Vibration</string>
+    <string name="p_vibration_hint">Allow vibration if it\'s enabled in system settings.</string>
     <string name="p_group_connection">Connection</string>
     <string name="p_group_info">Info</string>
     <string name="p_group_sound">Sound</string>

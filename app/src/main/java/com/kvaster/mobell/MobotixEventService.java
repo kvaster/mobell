@@ -21,8 +21,10 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.AudioAttributes;
 import android.media.AudioManager;
-import android.media.MediaPlayer;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.Binder;
@@ -30,6 +32,8 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.SystemClock;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
@@ -76,7 +80,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private final AtomicInteger actionCounter = new AtomicInteger();
 
-    private MediaPlayer mediaPlayer;
+    private Ringtone ringtone;
 
     private long reconnectDelay = RECONNECT_MIN_DELAY;
 
@@ -536,42 +540,71 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private synchronized void playRingtone() {
         try {
-            try {
-                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
-                    mediaPlayer.stop();
+            stopRingtone();
+
+            AudioAttributes attrs = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build();
+
+            String ringtoneUri = prefs.getString(AppPreferences.RINGTONE, Settings.System.DEFAULT_RINGTONE_URI.toString());
+
+            if (TextUtils.isEmpty(ringtoneUri)) {
+                ringtone = null;
+            } else {
+                ringtone = RingtoneManager.getRingtone(this, Uri.parse(ringtoneUri));
+                if (ringtone != null) {
+                    ringtone.setAudioAttributes(attrs);
+                    ringtone.play();
                 }
-            } catch (Exception e) {
-                // do nothing
             }
 
-            String ringtone = prefs.getString(AppPreferences.RINGTONE, Settings.System.DEFAULT_RINGTONE_URI.toString());
-            if (TextUtils.isEmpty(ringtone)) {
-                mediaPlayer = null;
-            } else {
-                mediaPlayer = new MediaPlayer();
-                mediaPlayer.setDataSource(this, Uri.parse(ringtone));
-                mediaPlayer.setAudioStreamType(AudioManager.STREAM_RING);
+            if (shouldVibrate()) {
+                Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
 
-                mediaPlayer.setLooping(true);
-                mediaPlayer.prepare();
-                mediaPlayer.start();
+                long[] pattern = { 0, 250, 250, 250 };
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    v.vibrate(VibrationEffect.createWaveform(pattern, 0), attrs);
+                } else {
+                    v.vibrate(pattern, 0, attrs);
+                }
             }
         } catch (Exception e) {
+            Log.w(TAG, "MBE: error sound and vibrate", e);
             // do nothing ?
-            mediaPlayer = null;
+            stopRingtone();
         }
     }
 
     private synchronized void stopRingtone() {
-        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
-            try {
-                mediaPlayer.stop();
-            } catch (Exception e) {
-                // do nothing
-            }
-
-            mediaPlayer = null;
+        if (ringtone != null) {
+            ringtone.stop();
+            ringtone = null;
         }
+
+        ((Vibrator) getSystemService(VIBRATOR_SERVICE)).cancel();
+    }
+
+    private boolean shouldVibrate() {
+        if (!prefs.getBoolean(AppPreferences.VIBRATION, true)) {
+            return false;
+        }
+
+        if (!((Vibrator)getSystemService(VIBRATOR_SERVICE)).hasVibrator()) {
+            return false;
+        }
+
+        int ringerMode = ((AudioManager) getSystemService(AUDIO_SERVICE)).getRingerMode();
+
+        try {
+            if (Settings.System.getInt(getContentResolver(), Settings.System.VIBRATE_WHEN_RINGING) > 0) {
+                return ringerMode != AudioManager.RINGER_MODE_SILENT;
+            }
+        } catch (Exception e) {
+            // do nothing
+        }
+
+        return ringerMode == AudioManager.RINGER_MODE_VIBRATE;
     }
 
     //////////////////////////////////////////////

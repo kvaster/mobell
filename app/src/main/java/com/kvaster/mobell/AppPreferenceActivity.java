@@ -2,6 +2,7 @@ package com.kvaster.mobell;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import android.content.Context;
 import android.content.Intent;
@@ -10,6 +11,7 @@ import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Vibrator;
 import android.provider.Settings;
 import android.text.TextUtils;
 import androidx.activity.result.ActivityResultLauncher;
@@ -19,6 +21,7 @@ import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceGroup;
+import androidx.preference.SwitchPreferenceCompat;
 
 public class AppPreferenceActivity extends AppCompatActivity {
     private static final Map<String, Integer> hintsMap = new HashMap<>();
@@ -71,22 +74,29 @@ public class AppPreferenceActivity extends AppCompatActivity {
                 if (p instanceof PreferenceGroup) {
                     walkSettings((PreferenceGroup) p, prefs);
                 } else {
-                    p.setOnPreferenceChangeListener(this);
-                    onPreferenceChange(p, prefs.getAll().get(p.getKey()));
+                    String key = p.getKey();
 
-                    Integer hint = hintsMap.get(p.getKey());
+                    p.setOnPreferenceChangeListener(this);
+                    onPreferenceChange(p, prefs.getAll().get(key));
+
+                    Integer hint = hintsMap.get(key);
                     if (hint != null) {
                         EditTextPreference ep = (EditTextPreference) p;
                         ep.setOnBindEditTextListener(et -> et.setHint(hint));
                     }
 
-                    if (AppPreferences.DISABLE_OPTIMIZATION.equals(p.getKey())) {
+                    if (AppPreferences.DISABLE_OPTIMIZATION.equals(key)) {
                         BattteryOptimizationPreference bp = (BattteryOptimizationPreference) p;
                         bp.setLauncher(registerForActivityResult(
                                 new ActivityResultContracts.StartActivityForResult(),
                                 result -> {
                                     bp.updateChecked();
                                 }));
+                    } else if (AppPreferences.VIBRATION.equals(key)) {
+                        if (!((Vibrator) requireContext().getSystemService(Context.VIBRATOR_SERVICE)).hasVibrator()) {
+                            ((SwitchPreferenceCompat)p).setChecked(false);
+                            p.setEnabled(false);
+                        }
                     }
                 }
             }

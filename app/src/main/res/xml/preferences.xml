@@ -50,9 +50,16 @@
         <Preference
                 android:key="ringtone"
                 android:title="@string/p_ringtone"
-                android:showDefault="true"
-                android:showSilent="true"
                 android:defaultValue="content://settings/system/ringtone"
+                app:allowDividerAbove="true"
+                app:allowDividerBelow="true"
+                app:iconSpaceReserved="false" />
+
+        <SwitchPreferenceCompat
+                android:key="vibration"
+                android:title="@string/p_vibration"
+                android:summary="@string/p_vibration_hint"
+                android:defaultValue="true"
                 app:allowDividerAbove="true"
                 app:allowDividerBelow="true"
                 app:iconSpaceReserved="false" />
