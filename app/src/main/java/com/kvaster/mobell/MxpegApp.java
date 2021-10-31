@@ -214,11 +214,6 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     @Override
     public void start() {
         MxpegNative.start();
-        bindResources();
-
-        streamer.start();
-
-        callService.addListener(this);
     }
 
     @Override
@@ -247,7 +242,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     public void resume() {
         callService.addListener(this);
 
-        // real resume will be done only after surface creation
+        // render resume will be done only after surface creation
         needResume = true;
         streamer.start();
     }

@@ -16,7 +16,7 @@ import static com.kvaster.mobell.AndroidUtils.TAG;
 
 public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer {
     private boolean started = false;
-    private boolean suspended = false;
+    private boolean suspended = true;
     private boolean paused = false;
 
     private final DisplayMetrics displayMetrics;
@@ -39,10 +39,17 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer {
         // Pop up for canvas. Now canvas is rendered on top of background.
         setZOrderOnTop(true);
         setRenderMode(RENDERMODE_WHEN_DIRTY);
+
+        // start app on create
+        started = true;
+        app.start();
     }
 
     public void stop() {
-        queueEvent(app::stop);
+        queueEvent(() -> {
+            started = false;
+            app.stop();
+        });
     }
 
     public void resume() {
@@ -57,6 +64,11 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer {
                 @Override
                 public synchronized void run() {
                     try {
+                        // start app on resume in case app was already stopped
+                        if (!started) {
+                            app.start();
+                        }
+
                         app.resume();
                     } catch (Throwable t) {
                         Log.e(TAG, "Error on resume", t);
@@ -152,14 +164,6 @@ public class GlView extends GLSurfaceView implements GLSurfaceView.Renderer {
 
     @Override
     public void onSurfaceChanged(GL10 gl, int width, int height) {
-        if (!started) {
-            app.start();
-            started = true;
-            // Destroy splash screen
-            final Activity a = (Activity) getContext();
-            a.runOnUiThread(() -> a.getWindow().setBackgroundDrawable(null));
-        }
-
         app.canvasSizeChanged(width, height);
     }
 

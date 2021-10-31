@@ -48,7 +48,9 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
 }
 
 extern "C" void JNICALL Java_com_kvaster_mobell_MxpegNative_start(JNIEnv *env, jclass c) {
-    renderer = new MxpegRenderer();
+    if (renderer == nullptr) {
+        renderer = new MxpegRenderer();
+    }
 }
 
 extern "C" void JNICALL Java_com_kvaster_mobell_MxpegNative_stop(JNIEnv *env, jclass c) {
