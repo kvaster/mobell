@@ -360,7 +360,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                 view.requestRender();
 
                 actionGestureInProgress = true;
-                audioManager.playSoundEffect(SoundEffectConstants.CLICK);
+                audioManager.playSoundEffect(AudioManager.FX_KEY_CLICK);
             }
         } else if (actionGestureInProgress) {
             if (action == MotionEvent.ACTION_UP) {

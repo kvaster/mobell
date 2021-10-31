@@ -73,15 +73,17 @@ private:
     void updateTextures();
 
     // FFmpeg video
-    AVCodec *videoCodec;
+    const AVCodec *videoCodec;
     AVCodecContext *videoCodecCtx;
     AVFrame *videoFrame;
     AVFrame *videoWorkFrame;
+    AVPacket *videoPkt;
 
     // FFmpeg audio
-    AVCodec *audioCodec;
+    const AVCodec *audioCodec;
     AVCodecContext *audioCodecCtx;
     AVFrame *audioWorkFrame;
+    AVPacket *audioPkt;
 
     AudioBufferStack audioBuffers;
     AudioBufferQueue playingAudioBuffers;

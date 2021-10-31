@@ -37,11 +37,13 @@ MxpegRenderer::MxpegRenderer() {
     videoCodecCtx = nullptr;
     videoFrame = av_frame_alloc();
     videoWorkFrame = av_frame_alloc();
+    videoPkt = av_packet_alloc();
 
     // Audio
     audioCodec = avcodec_find_decoder(AV_CODEC_ID_PCM_ALAW);
     audioCodecCtx = nullptr;
     audioWorkFrame = av_frame_alloc();
+    audioPkt = av_packet_alloc();
 
     for (int i = 0; i < QUEUE_BUFFERS; i++) {
         AudioBuffer *b = new AudioBuffer(16 * 1024);
@@ -63,11 +65,13 @@ MxpegRenderer::~MxpegRenderer() {
 
     avcodec_free_context(&audioCodecCtx);
     av_frame_free(&audioWorkFrame);
+    av_packet_free(&audioPkt);
 
     // video
     avcodec_free_context(&videoCodecCtx);
     av_frame_free(&videoFrame);
     av_frame_free(&videoWorkFrame);
+    av_packet_free(&videoPkt);
 
     pthread_mutex_destroy(&videoMutex);
 }
@@ -301,13 +305,10 @@ void MxpegRenderer::onStreamStop() {
 }
 
 int MxpegRenderer::onStreamVideoPacket(uint8_t *data, size_t size) {
-    AVPacket pkt;
-    av_init_packet(&pkt);
+    videoPkt->data = data;
+    videoPkt->size = size;
 
-    pkt.data = data;
-    pkt.size = size;
-
-    avcodec_send_packet(videoCodecCtx, &pkt);
+    avcodec_send_packet(videoCodecCtx, videoPkt);
 
     pthread_mutex_lock(&videoMutex);
 
@@ -444,13 +445,10 @@ void MxpegRenderer::updateTextures() {
 
 bool MxpegRenderer::onStreamAudioPacket(uint8_t *data, size_t size) {
     if (audioType == AUDIO_ALAW) {
-        AVPacket pkt;
-        av_init_packet(&pkt);
+        audioPkt->data = data;
+        audioPkt->size = size;
 
-        pkt.data = data;
-        pkt.size = size;
-
-        avcodec_send_packet(audioCodecCtx, &pkt);
+        avcodec_send_packet(audioCodecCtx, audioPkt);
 
         bool ok = true;
         int ret = 0;

@@ -3,6 +3,8 @@ apply plugin: 'com.android.application'
 android {
     compileSdk 31
 
+    ndkVersion "22.0.7026061"
+
     defaultConfig {
         applicationId "com.kvaster.mobell"
         minSdk 23
