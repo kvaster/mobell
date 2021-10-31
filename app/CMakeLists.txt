@@ -15,8 +15,4 @@ add_library(mobell SHARED ${SOURCE_FILES})
 
 include_directories(${ffmpeg}/include)
 
-if (${ANDROID_ABI} STREQUAL "x86")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--no-warn-shared-textrel")
-endif ()
-
 target_link_libraries(mobell log lib_avcodec lib_avutil GLESv2 OpenSLES)
