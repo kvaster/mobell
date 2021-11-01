@@ -63,12 +63,10 @@ MxpegRenderer::MxpegRenderer() {
 MxpegRenderer::~MxpegRenderer() {
     onStreamStop();
 
-    avcodec_free_context(&audioCodecCtx);
     av_frame_free(&audioWorkFrame);
     av_packet_free(&audioPkt);
 
     // video
-    avcodec_free_context(&videoCodecCtx);
     av_frame_free(&videoFrame);
     av_frame_free(&videoWorkFrame);
     av_packet_free(&videoPkt);

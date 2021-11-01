@@ -43,8 +43,7 @@ fi
 NDK_VERSION="22.0.7026061"
 ANDROID_NDK=${ANDROID_HOME}/ndk/${NDK_VERSION}
 
-#ANDROID_PLATFORM=27
-ANDROID_PLATFORM=21
+ANDROID_PLATFORM=23
 
 #TOOLCHAIN_PREFIX=${ANDROID_HOME}/ndk-bundle/toolchains/${TOOLCHAIN}-4.9/prebuilt/linux-x86_64
 #CROSS_PREFIX=${TOOLCHAIN_PREFIX}/bin/${NDK_ABI}-
@@ -54,8 +53,8 @@ CROSS_PREFIX=${TOOLCHAIN_PREFIX}/bin/${NDK_ABI}-
 
 PLATFORM_PREFIX=${ANDROID_HOME}/ndk-bundle/platforms/android-${ANDROID_PLATFORM}/arch-${PLATFORM}/
 SYSROOT=${TOOLCHAIN_PREFIX}/sysroot
-CFLAGS='-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fno-strict-overflow -fstack-protector-all -DANDROIDi -fPIC -fsanitize-trap=undefined'
-CXXFLASG='-fPIC -fsanitize-trap=undefined'
+CFLAGS='-O3 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fno-strict-overflow -DANDROIDi -fPIC -fstack-protector-all -fno-sanitize=undefined'
+CXXFLASG='-fPIC -fno-sanitize=undefined'
 LDFLAGS='-pie -lc -lm -ldl -llog -Wl,-z,relro -Wl,-z,now -fPIC'
 
 python ${ANDROID_NDK}/build/tools/make_standalone_toolchain.py \
