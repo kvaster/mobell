@@ -93,7 +93,7 @@ public class AppPreferenceActivity extends AppCompatActivity {
                                     bp.updateChecked();
                                 }));
                     } else if (AppPreferences.VIBRATION.equals(key)) {
-                        if (!((Vibrator) requireContext().getSystemService(Context.VIBRATOR_SERVICE)).hasVibrator()) {
+                        if (!requireContext().getSystemService(Vibrator.class).hasVibrator()) {
                             ((SwitchPreferenceCompat)p).setChecked(false);
                             p.setEnabled(false);
                         }

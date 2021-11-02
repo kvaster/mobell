@@ -73,7 +73,7 @@ public class MainActivity extends Activity {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            ((KeyguardManager)getSystemService(KEYGUARD_SERVICE)).requestDismissKeyguard(this, null);
+            getSystemService(KeyguardManager.class).requestDismissKeyguard(this, null);
         }
     }
 

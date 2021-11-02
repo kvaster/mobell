@@ -34,7 +34,7 @@ public class BattteryOptimizationPreference extends SwitchPreferenceCompat {
 
     private boolean isDisabled() {
         Context context = Objects.requireNonNull(getContext());
-        return ((PowerManager) context.getSystemService(Context.POWER_SERVICE))
+        return context.getSystemService(PowerManager.class)
                 .isIgnoringBatteryOptimizations(context.getPackageName());
     }
 

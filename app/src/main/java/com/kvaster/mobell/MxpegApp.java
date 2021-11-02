@@ -25,6 +25,7 @@ import android.view.WindowManager;
 import org.json.JSONObject;
 
 import static com.kvaster.mobell.AndroidUtils.TAG;
+import static java.util.Objects.requireNonNull;
 
 public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderListener, CallService.Listener {
     private Activity ctx;
@@ -61,7 +62,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         this.ctx = ctx;
         this.prefs = AndroidUtils.getSharedPreferences(ctx);
 
-        audioManager = Objects.requireNonNull((AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE));
+        audioManager = ctx.getSystemService(AudioManager.class);
 
         streamer = new PrefsAwareMxpegStreamer(
                 ctx,
@@ -704,7 +705,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     };
 
     private Bitmap loadIcon(Context ctx, int resId, int width, int height) {
-        Drawable vd = Objects.requireNonNull(ctx.getDrawable(resId));
+        Drawable vd = requireNonNull(ctx.getDrawable(resId));
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         vd.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());

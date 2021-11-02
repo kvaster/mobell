@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -72,6 +71,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private PowerManager.WakeLock callWakeLock;
 
     private AlarmManager alarmManager;
+    private NotificationManager notificationManager;
     private final AtomicReference<PendingIntent> currentAlarm = new AtomicReference<>();
     private final AtomicReference<PendingIntent> callTimeoutAlarm = new AtomicReference<>();
 
@@ -169,28 +169,31 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
         readPrefs();
 
+        // alarms
+        alarmManager = getSystemService(AlarmManager.class);
+        // notifications
+        notificationManager = getSystemService(NotificationManager.class);
+
         // we need to create notification for foreground service
         serviceNotification = createServiceNofitication();
         // call notification
         callNotification = createCallNotification();
 
-        // alarms
-        alarmManager = Objects.requireNonNull((AlarmManager) getSystemService(ALARM_SERVICE));
 
         // we need wifi lock to receive packets over wifi even in sleep mode
         lockWifi();
 
+        PowerManager powerManager = getSystemService(PowerManager.class);
+
         // we will use lock only during connection initiation
-        taskWakeLock = ((PowerManager) Objects.requireNonNull(getSystemService(POWER_SERVICE)))
-                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_TASK_TAG);
+        taskWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_TASK_TAG);
         taskWakeLock.setReferenceCounted(false);
 
         // We need to use FULL_WAKE_LOCK for older (pre 8.x) devices like huawei media pad with 7.0 on board.
         //noinspection deprecation
-        callWakeLock = ((PowerManager) Objects.requireNonNull(getSystemService(POWER_SERVICE)))
-                .newWakeLock(PowerManager.FULL_WAKE_LOCK
-                        | PowerManager.ACQUIRE_CAUSES_WAKEUP
-                        | PowerManager.ON_AFTER_RELEASE, WAKE_CALL_TAG);
+        callWakeLock = powerManager.newWakeLock(PowerManager.FULL_WAKE_LOCK
+                | PowerManager.ACQUIRE_CAUSES_WAKEUP
+                | PowerManager.ON_AFTER_RELEASE, WAKE_CALL_TAG);
         callWakeLock.setReferenceCounted(false);
 
         streamer = new PrefsAwareMxpegStreamer(
@@ -236,7 +239,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
         boolean highPerf = prefs.getBoolean(AppPreferences.SERVICE_FAST_WIFI, false);
 
-        wifiLock = ((WifiManager) Objects.requireNonNull(getApplicationContext().getSystemService(WIFI_SERVICE)))
+        wifiLock = getApplicationContext().getSystemService(WifiManager.class)
                 .createWifiLock(highPerf ? WifiManager.WIFI_MODE_FULL_HIGH_PERF : WifiManager.WIFI_MODE_FULL, WIFI_TAG);
         wifiLock.setReferenceCounted(false);
         wifiLock.acquire();
@@ -248,9 +251,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private Notification createServiceNofitication() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager nm = Objects.requireNonNull((NotificationManager) getSystemService(NOTIFICATION_SERVICE));
             NotificationChannel ch = new NotificationChannel(CHAN_ID_FG, getString(R.string.s_notif_service), NotificationManager.IMPORTANCE_NONE);
-            nm.createNotificationChannel(ch);
+            notificationManager.createNotificationChannel(ch);
         }
 
         Intent notificationIntent = new Intent(this, MainActivity.class);
@@ -470,9 +472,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private Notification createCallNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager nm = Objects.requireNonNull((NotificationManager) getSystemService(NOTIFICATION_SERVICE));
             NotificationChannel ch = new NotificationChannel(CHAN_ID_CALL, getString(R.string.s_notif_call), NotificationManager.IMPORTANCE_HIGH);
-            nm.createNotificationChannel(ch);
+            notificationManager.createNotificationChannel(ch);
         }
 
         // only for test purposes
@@ -497,16 +498,12 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     }
 
     private void fireCallNotification() {
-        getNotificationManager().notify(NOTIF_ID_CALL, callNotification);
+        notificationManager.notify(NOTIF_ID_CALL, callNotification);
         scheduleCallTimeout();
     }
 
     private void dismissCallNotification() {
-        getNotificationManager().cancel(NOTIF_ID_CALL);
-    }
-
-    private NotificationManager getNotificationManager() {
-        return (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        notificationManager.cancel(NOTIF_ID_CALL);
     }
 
     @Override
@@ -559,7 +556,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             }
 
             if (shouldVibrate()) {
-                Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+                Vibrator v = getSystemService(Vibrator.class);
 
                 long[] pattern = { 0, 250, 250, 250 };
 
@@ -582,7 +579,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             ringtone = null;
         }
 
-        ((Vibrator) getSystemService(VIBRATOR_SERVICE)).cancel();
+        getSystemService(Vibrator.class).cancel();
     }
 
     private boolean shouldVibrate() {
@@ -590,7 +587,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             return false;
         }
 
-        if (!((Vibrator)getSystemService(VIBRATOR_SERVICE)).hasVibrator()) {
+        if (!getSystemService(Vibrator.class).hasVibrator()) {
             return false;
         }
 
