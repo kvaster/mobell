@@ -2,6 +2,9 @@
 
 ## En
 
+### v1.5.0
+* Reconnect logic rewritten. Sometimes mobell was hanging on reconnect.
+
 ### v1.4.1
 * Fixed crash due to ffmpeg compile options
 * Fixed crash due to race condition during initialization
@@ -15,6 +18,9 @@
 * Notifications implemented in proper way according to latest google guides.
 
 ## Ru
+
+### v1.5.0
+* Переписана логика переподключения. Иногда приложение зависало на переподключении.
 
 ### v1.4.1
 
