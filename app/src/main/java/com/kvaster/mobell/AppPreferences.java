@@ -12,5 +12,6 @@ public class AppPreferences {
     public static final String KEEPALIVE = "keepalive";
     public static final String READ_TIMEOUT = "read_timeout";
     public static final String CALL_TIMEOUT = "call_timeout";
+    public static final String RECONNECT_DELAY = "reconnect_delay";
     public static final String VIBRATION = "vibration";
 }

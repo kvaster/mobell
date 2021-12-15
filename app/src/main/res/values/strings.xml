@@ -27,6 +27,8 @@
     <string name="p_read_timeout_hint">Maximum time to keep connection in case no data.</string>
     <string name="p_call_timeout">Call timeout</string>
     <string name="p_call_timeout_hint">Maximum time of doorbell ring.</string>
+    <string name="p_reconnect_delay">Reconnect delay</string>
+    <string name="p_reconnect_delat_hint">Reconnect delay in seconds - maximum time between reconnect attempts on connection lost</string>
     <string name="p_vibration">Vibration</string>
     <string name="p_vibration_hint">Allow vibration if it\'s enabled in system settings.</string>
     <string name="p_group_connection">Connection</string>

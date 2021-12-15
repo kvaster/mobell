@@ -3,12 +3,10 @@ package com.kvaster.mobell;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import android.annotation.SuppressLint;
 import android.app.AlarmManager;
@@ -45,15 +43,13 @@ import static com.kvaster.mobell.JsonUtils.ja;
 
 public class MobotixEventService extends Service implements MxpegStreamer.Listener, CallService, SharedPreferences.OnSharedPreferenceChangeListener {
     private static final long RECONNECT_MIN_DELAY = TimeUnit.SECONDS.toMillis(1);
-    private static final long RECONNECT_MAX_DELAY = TimeUnit.SECONDS.toMillis(60);
 
     private static final String WIFI_TAG = "mobell:wifi";
     private static final String WAKE_TASK_TAG = "mobell:wake-task";
     private static final String WAKE_CALL_TAG = "mobell:wake-call";
 
-    private static final String ACTION_TIMEOUT = "com.kvaster.mobell.TIMEOUT";
-    private static final String ACTION_RECONNECT = "com.kvaster.mobell.RECONNECT";
-    private static final String ACTION_CALL_TIMEOUT = "com.kvaster.mobell.CALL_TIMEOUT";
+    private static final String STATE_CHECK_ACTION = "com.kvaster.mobell.STATE_CHECK";
+    private static final String CALL_TIMEOUT_ACTION = "com.kvaster.mobell.CALL_TIMEOUT";
 
     private static final int NOTIF_ID_FG = 1;
     private static final String CHAN_ID_FG = "mobell-fg";
@@ -72,8 +68,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private AlarmManager alarmManager;
     private NotificationManager notificationManager;
-    private final AtomicReference<PendingIntent> currentAlarm = new AtomicReference<>();
-    private final AtomicReference<PendingIntent> callTimeoutAlarm = new AtomicReference<>();
+    private PendingIntent stateCheckAlarm; // used only with synchronized
+    private PendingIntent callTimeoutAlarm; // used only with synchronized
 
     private Notification serviceNotification;
     private Notification callNotification;
@@ -82,13 +78,13 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private Ringtone ringtone;
 
+    // if zero -> we're connected
     private long reconnectDelay = RECONNECT_MIN_DELAY;
 
-    private volatile long keepaliveDelay;
-    private volatile long readTimeout;
-    private volatile long callTimeout;
-
-    private volatile boolean isRunning = false;
+    private long keepaliveDelay;
+    private long readTimeout;
+    private long callTimeout;
+    private long reconnectMaxDelay;
 
     private interface EventProcessor {
         boolean onEvent(JSONObject e) throws Exception;
@@ -143,25 +139,28 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         }
     }
 
-    private long safeLong(String key, long defValue) {
+    private long safeLong(String key, long defValue, long minValue, long maxValue) {
         try {
-            return Long.parseLong(prefs.getString(key, Long.toString(defValue)));
+            return Math.max(Math.min(Long.parseLong(prefs.getString(key, Long.toString(defValue))), maxValue), minValue);
         } catch (Exception e) {
             return defValue;
         }
     }
 
-    private void readPrefs() {
-        keepaliveDelay = TimeUnit.SECONDS.toMillis(safeLong(AppPreferences.KEEPALIVE, 60));
-        readTimeout = TimeUnit.SECONDS.toMillis(keepaliveDelay + safeLong(AppPreferences.READ_TIMEOUT, 90));
-        callTimeout = TimeUnit.SECONDS.toMillis(safeLong(AppPreferences.CALL_TIMEOUT, 30));
+    private synchronized void readPrefs() {
+        keepaliveDelay = TimeUnit.SECONDS.toMillis(safeLong(AppPreferences.KEEPALIVE, 60, 10, 120));
+        readTimeout = TimeUnit.SECONDS.toMillis(keepaliveDelay + safeLong(AppPreferences.READ_TIMEOUT, 90, 30, 120));
+        callTimeout = TimeUnit.SECONDS.toMillis(safeLong(AppPreferences.CALL_TIMEOUT, 30, 1, 120));
+        reconnectMaxDelay = TimeUnit.SECONDS.toMillis(safeLong(AppPreferences.RECONNECT_DELAY, 60, 1, 120));
+
+        if (streamer != null) {
+            streamer.setReadTimeout((int)readTimeout);
+        }
     }
 
     @SuppressLint("WakelockTimeout")
     @Override
     public void onCreate() {
-        isRunning = true;
-
         super.onCreate();
 
         prefs = AndroidUtils.getSharedPreferences(this);
@@ -206,16 +205,18 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         );
         streamer.start();
 
-        scheduleReconnect();
+        forceScheduleStateCheck();
     }
 
     @Override
     public void onDestroy() {
-        isRunning = false;
-
         Log.i(TAG, "MBE: service destroyed");
 
-        cancelAction();
+        // There will be no any events from streamer after stop
+        // We should do it before destroying other stuff
+        streamer.stop();
+
+        cancelStateCheck();
         cancelCallTimeout();
 
         dismissCallNotification();
@@ -224,8 +225,6 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         unlockWifi();
         taskWakeLock.release();
         callWakeLock.release();
-
-        streamer.stop();
 
         stopForeground(true);
 
@@ -271,94 +270,88 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         return builder.build();
     }
 
-    private void scheduleReconnect() {
-        scheduleAction(ACTION_RECONNECT, reconnectDelay);
+    private synchronized void cancelStateCheck() {
+        if (stateCheckAlarm != null) {
+            alarmManager.cancel(stateCheckAlarm);
+            stateCheckAlarm = null;
 
-        reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_DELAY);
-    }
-
-    private void scheduleTimeout() {
-        scheduleAction(ACTION_TIMEOUT, keepaliveDelay);
-    }
-
-    private void fireAlarm(String action, long delayMillis, AtomicReference<PendingIntent> alarm) {
-        if (!isRunning) {
-            return;
+            Log.i(TAG, "MBE: alarm canceled: " + STATE_CHECK_ACTION);
         }
+    }
 
-        Log.i(TAG, "MBE: action scheduled: " + action + " / " + delayMillis);
+    private synchronized void scheduleStateCheck(long stateCheckDelay) {
+        cancelStateCheck();
+        stateCheckAlarm = fireAlarm(STATE_CHECK_ACTION, stateCheckDelay);
+    }
 
-        cancelAction();
+    private synchronized void scheduleConnectedStateCheck() {
+        reconnectDelay = 0;
+        scheduleStateCheck(keepaliveDelay);
+    }
+
+    private void forceScheduleStateCheck() {
+        scheduleStateCheck(0);
+    }
+
+    private synchronized void cancelCallTimeout() {
+        if (callTimeoutAlarm != null) {
+            alarmManager.cancel(callTimeoutAlarm);
+            callTimeoutAlarm = null;
+
+            Log.i(TAG, "MBE: alarm canceled: " + CALL_TIMEOUT_ACTION);
+        }
+    }
+
+    private synchronized void scheduleCallTimeout() {
+        cancelCallTimeout();
+        callTimeoutAlarm = fireAlarm(CALL_TIMEOUT_ACTION, callTimeout);
+    }
+
+    private PendingIntent fireAlarm(String action, long delayMillis) {
+        Log.i(TAG, "MBE: alarm scheduled: " + action + " / " + delayMillis);
 
         Intent i = new Intent(this, MobotixEventService.class).setAction(action);
         PendingIntent pi = PendingIntent.getService(this, actionCounter.getAndIncrement(), i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + delayMillis, pi);
 
-        alarm.set(pi);
-    }
-
-    private void cancelAlarm(AtomicReference<PendingIntent> alarm) {
-        PendingIntent pi = alarm.getAndSet(null);
-        if (pi != null) {
-            alarmManager.cancel(pi);
-        }
-    }
-
-    private void scheduleAction(String action, long delayMillis) {
-        fireAlarm(action, delayMillis, currentAlarm);
-    }
-
-    private void cancelAction() {
-        cancelAlarm(currentAlarm);
-    }
-
-    private void scheduleCallTimeout() {
-        fireAlarm(ACTION_CALL_TIMEOUT, callTimeout, callTimeoutAlarm);
-    }
-
-    private void cancelCallTimeout() {
-        cancelAlarm(callTimeoutAlarm);
+        return pi;
     }
 
     @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
+    public synchronized int onStartCommand(Intent intent, int flags, int startId) {
         try {
             String action = intent == null ? null : intent.getAction();
 
-            Log.i(TAG, "MBE: Start command - " + action);
-
-            if (ACTION_TIMEOUT.equals(action)) {
-                Log.i(TAG, "MBE: timeout occured");
+            if (STATE_CHECK_ACTION.equals(action)) {
                 taskWakeLock.acquire(1000);
-                streamer.sendCmd("list_addressees");
+                if (reconnectDelay == 0) {
+                    Log.i(TAG, "MBE: state check - ping");
+                    scheduleConnectedStateCheck();
 
-                scheduleTimeout();
-            } else if (ACTION_RECONNECT.equals(action)) {
-                Log.i(TAG, "MBE: forcing reconnect");
+                    streamer.sendCmd("list_addressees");
+                } else {
+                    Log.i(TAG, "MBE: state check - reconnect");
+                    reconnectDelay = Math.min(reconnectDelay * 2, reconnectMaxDelay);
+                    scheduleStateCheck(reconnectDelay);
 
-                taskWakeLock.acquire(1000); // 1s - for reconnect attempt
-                scheduleReconnect();
-                streamer.forceReconnectIfNeed();
-            } else if (ACTION_CALL_TIMEOUT.equals(action)) {
+                    streamer.forceReconnectIfNeed();
+                }
+            } else if (CALL_TIMEOUT_ACTION.equals(action)) {
                 Log.i(TAG, "MBE: call timeout");
 
-                synchronized (this) {
-                    if (callStatus == CallStatus.UNACCEPTED) {
-                        changeCallStatus(CallStatus.IDLE);
-                    }
+                if (callStatus == CallStatus.UNACCEPTED) {
+                    changeCallStatus(CallStatus.IDLE);
                 }
 
                 cancelCallTimeout();
             } else {
-                Log.i(TAG, "MBE: service started");
+                Log.i(TAG, "MBE: service started, action: " + action);
                 // service start (or restart) requested
                 startForeground(NOTIF_ID_FG, serviceNotification);
             }
         } catch (Exception e) {
             Log.e(TAG, "MBE: ERR", e);
         }
-
-        Log.i(TAG, "MBE: finished");
 
         return Service.START_STICKY;
     }
@@ -370,10 +363,11 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     }
 
     @Override
-    public void onStreamStart() {
-        Log.i(TAG, "MBE: " + new Date() + " | Stream start");
+    public synchronized void onStreamStart() {
+        Log.i(TAG, "MBE: stream start");
 
         taskWakeLock.acquire(1000);
+        scheduleConnectedStateCheck();
 
         changeCallStatus(CallStatus.IDLE);
 
@@ -408,20 +402,18 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             }), "add_device", ja(mac, ja(devId), "MoBell+" + mac));
             return true;
         }), "list_addressees");
-
-        scheduleTimeout();
     }
 
     @Override
-    public void onStreamStop() {
-        Log.i(TAG, "MBE: " + new Date() + " | Stream stop");
+    public synchronized void onStreamStop() {
+        Log.i(TAG, "MBE: stream stop");
+
+        reconnectDelay = RECONNECT_MIN_DELAY;
+        scheduleStateCheck(reconnectDelay);
 
         changeCallStatus(CallStatus.DISCONNECTED);
 
         events.clear();
-
-        reconnectDelay = RECONNECT_MIN_DELAY;
-        scheduleReconnect();
     }
 
     @Override
@@ -457,9 +449,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             Log.i(TAG, "MBE: bell received and ring is: " + isRing);
 
             if (isRing) {
-                if (changeCallStatus(CallStatus.UNACCEPTED)) {
-                    fireCallNotification();
-                }
+                changeCallStatus(CallStatus.UNACCEPTED);
             } else {
                 if (callStatus == CallStatus.SUPPRESSED || callStatus == CallStatus.UNACCEPTED) {
                     changeCallStatus(CallStatus.IDLE);
@@ -507,11 +497,11 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     }
 
     @Override
-    public void onMobotixEvent(JSONObject event) {
-        Log.i(TAG, "MBE: " + event);
+    public synchronized void onMobotixEvent(JSONObject event) {
+        Log.i(TAG, "MBE: event " + event);
 
-        cancelAction();
         taskWakeLock.acquire(1000);
+        scheduleConnectedStateCheck();
 
         try {
             int id = event.optInt("id");
@@ -526,9 +516,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 streamer.sendCmd("pong");
             }
 
-            scheduleTimeout();
         } catch (Exception e) {
-            Log.e(TAG, "MBE: ERR", e);
+            Log.e(TAG, "MBE: error on event", e);
         }
     }
 
@@ -611,14 +600,18 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private CallStatus callStatus = CallStatus.DISCONNECTED;
 
     @SuppressLint("WakelockTimeout")
-    private synchronized boolean changeCallStatus(CallStatus status) {
+    private synchronized void changeCallStatus(CallStatus status) {
         if (callStatus == status) {
-            return false;
+            return;
         }
 
+        Log.i(TAG, "MBE: call status is " + status);
+
         if (status == CallStatus.UNACCEPTED) {
-            callWakeLock.acquire();
+            // acquire lock only for call time with some gap
+            callWakeLock.acquire(callTimeout + TimeUnit.SECONDS.toMillis(5));
             playRingtone();
+            fireCallNotification();
         } else {
             callWakeLock.release();
             dismissCallNotification();
@@ -628,8 +621,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         for (Listener l : listeners) {
             l.onCallStatus(status);
         }
+
         callStatus = status;
-        return true;
     }
 
     @Override
@@ -637,6 +630,9 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         Log.i(TAG, "MBE: add listener");
         listeners.add(listener);
         listener.onCallStatus(callStatus);
+
+        // new 'app' connected - try to reconnect if necessary
+        forceScheduleStateCheck();
     }
 
     @Override
@@ -648,6 +644,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     @Override
     public synchronized void suppressCall() {
+        Log.i(TAG, "MBE: suppress call");
         if (callStatus == CallStatus.UNACCEPTED) {
             changeCallStatus(CallStatus.SUPPRESSED);
             streamer.sendCmd("stop");
@@ -655,7 +652,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     }
 
     @Override
-    public void acceptCall() {
+    public synchronized void acceptCall() {
+        Log.i(TAG, "MBE: accept call");
         if (callStatus == CallStatus.UNACCEPTED) {
             changeCallStatus(CallStatus.ACCEPTED);
             streamer.sendCmd("bell_ack", ja(true));
@@ -663,7 +661,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     }
 
     @Override
-    public void stopCall() {
+    public synchronized void stopCall() {
+        Log.i(TAG, "MBE: stop call");
         if (callStatus == CallStatus.UNACCEPTED || callStatus == CallStatus.ACCEPTED || callStatus == CallStatus.SUPPRESSED) {
             changeCallStatus(CallStatus.IDLE);
             streamer.sendCmd("bell_ack", ja(false));
@@ -672,6 +671,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     @Override
     public void openDoor() {
+        Log.i(TAG, "MBE: open door");
         streamer.sendCmd("trigger", ja("door"));
     }
 }

@@ -32,6 +32,7 @@ public class AppPreferenceActivity extends AppCompatActivity {
         hintsMap.put(AppPreferences.LOGIN, R.string.p_login_hint);
         hintsMap.put(AppPreferences.PASSWORD, R.string.p_pass_hint);
         hintsMap.put(AppPreferences.KEEPALIVE, R.string.p_keepalive_hint);
+        hintsMap.put(AppPreferences.RECONNECT_DELAY, R.string.p_reconnect_delat_hint);
         hintsMap.put(AppPreferences.CALL_TIMEOUT, R.string.p_call_timeout_hint);
     }
 

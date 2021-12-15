@@ -52,7 +52,7 @@ public abstract class MxpegStreamer {
     private final ByteBuffer buffer;
 
     private final int ringBufferSize;
-    private final int readTimeout;
+    private volatile int readTimeout; // volatile -> we may change this dynamically
     private final long reconnectDelay;
 
     private Socket socket;
@@ -71,6 +71,10 @@ public abstract class MxpegStreamer {
         this.ringBufferSize = ringBufferSize;
         this.readTimeout = readTimeout;
         this.reconnectDelay = reconnectDelay;
+    }
+
+    public void setReadTimeout(int readTimeout) {
+        this.readTimeout = Math.min(Math.max(readTimeout, 30), 120);
     }
 
     protected abstract String getHost();
@@ -208,6 +212,7 @@ public abstract class MxpegStreamer {
                     connected = true;
 
                     while (keepRunning) {
+                        socket.setSoTimeout(readTimeout); // always update so_timeout before packet read
                         readPacket(r);
                     }
                 }

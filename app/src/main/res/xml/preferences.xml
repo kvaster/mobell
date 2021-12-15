@@ -134,6 +134,15 @@
                 app:allowDividerBelow="true"
                 app:iconSpaceReserved="false" />
 
+        <EditTextPreference
+                android:key="reconnect_delay"
+                android:title="@string/p_reconnect_delay"
+                android:inputType="number"
+                android:defaultValue="60"
+                app:allowDividerAbove="true"
+                app:allowDividerBelow="true"
+                app:iconSpaceReserved="false" />
+
     </PreferenceCategory>
 
     <PreferenceCategory
