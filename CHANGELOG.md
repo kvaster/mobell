@@ -2,6 +2,9 @@
 
 ## En
 
+### v1.5.1
+* Fix crash on initialization.
+
 ### v1.5.0
 * Reconnect logic rewritten. Sometimes mobell was hanging on reconnect.
 
@@ -18,6 +21,9 @@
 * Notifications implemented in proper way according to latest google guides.
 
 ## Ru
+
+### v1.5.1
+* Исправлено падение на инициализации.
 
 ### v1.5.0
 * Переписана логика переподключения. Иногда приложение зависало на переподключении.
