@@ -3,12 +3,10 @@ package com.kvaster.mobell;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
-import java.util.Objects;
 
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
@@ -20,7 +18,6 @@ import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
-import android.view.SoundEffectConstants;
 import android.view.WindowManager;
 import org.json.JSONObject;
 
@@ -53,14 +50,12 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private int canvasWidth;
     private int canvasHeight;
 
-    private final SharedPreferences prefs;
     private final AudioManager audioManager;
 
     private GlView view;
 
     public MxpegApp(Activity ctx, DisplayMetrics displayMetrics) {
         this.ctx = ctx;
-        this.prefs = AndroidUtils.getSharedPreferences(ctx);
 
         audioManager = ctx.getSystemService(AudioManager.class);
 
@@ -572,16 +567,18 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
                 break;
 
             case SUPPRESSED:
-                setActions(true, false, false,
+                setActions(false, false, false,
                         createVolumeOnOffAction(),
-                        createMicOnOffAction(),
-                        createDoorOpenAction(false, false)
+                        createAcceptCallAction(),
+                        createRejectCallAction(),
+                        createDoorOpenAction(true, true)
                 );
                 break;
 
             case UNACCEPTED:
                 setActions(
                         false, false, true,
+                        createSuppressAction(),
                         createAcceptCallAction(),
                         createRejectCallAction(),
                         createDoorOpenAction(true, true)
@@ -619,6 +616,12 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         }, Icon.DOOR_OPEN);
     }
 
+    private Action createSuppressAction() {
+        return new Action(() -> {
+            callService.suppressCall();
+        }, Icon.SUPPRESS);
+    }
+
     private Action createVolumeOnOffAction() {
         return new Action(() -> volumeEnabled = !volumeEnabled,
                 () -> volumeEnabled ? Icon.VOLUME_ON : Icon.VOLUME_OFF);
@@ -647,6 +650,7 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         VOLUME_ON(R.drawable.ic_volume_on),
         VOLUME_OFF(R.drawable.ic_volume_off),
         DOOR_OPEN(R.drawable.ic_door_open),
+        SUPPRESS(R.drawable.ic_suppress),
         SETTINGS(R.drawable.ic_settings),
         DEFAULT_SIZE(R.drawable.ic_default_size);
 

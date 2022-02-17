@@ -339,7 +339,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             } else if (CALL_TIMEOUT_ACTION.equals(action)) {
                 Log.i(TAG, "MBE: call timeout");
 
-                if (callStatus == CallStatus.UNACCEPTED) {
+                if (callStatus == CallStatus.UNACCEPTED || callStatus == CallStatus.SUPPRESSED) {
                     changeCallStatus(CallStatus.IDLE);
                 }
 
@@ -454,6 +454,12 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 if (callStatus == CallStatus.SUPPRESSED || callStatus == CallStatus.UNACCEPTED) {
                     changeCallStatus(CallStatus.IDLE);
                 }
+            }
+        } else if ("suppress".equals(type)) {
+            Log.i(TAG, "MBE: suppress received");
+
+            if (callStatus == CallStatus.UNACCEPTED) {
+                changeCallStatus(CallStatus.SUPPRESSED);
             }
         }
 
@@ -647,7 +653,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         Log.i(TAG, "MBE: suppress call");
         if (callStatus == CallStatus.UNACCEPTED) {
             changeCallStatus(CallStatus.SUPPRESSED);
-            streamer.sendCmd("stop");
+            streamer.sendCmd("suppress");
         }
     }
 
