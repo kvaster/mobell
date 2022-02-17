@@ -2,6 +2,9 @@
 
 ## En
 
+### v1.6.0
+* Bell suppress support.
+
 ### v1.5.1
 * Fix crash on initialization.
 
@@ -21,6 +24,9 @@
 * Notifications implemented in proper way according to latest google guides.
 
 ## Ru
+
+### v1.6.0
+* Возможность игнорирования звонка.
 
 ### v1.5.1
 * Исправлено падение на инициализации.
