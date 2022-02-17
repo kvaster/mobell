@@ -46,7 +46,7 @@ MxpegRenderer::MxpegRenderer() {
     audioPkt = av_packet_alloc();
 
     for (int i = 0; i < QUEUE_BUFFERS; i++) {
-        AudioBuffer *b = new AudioBuffer(16 * 1024);
+        auto *b = new AudioBuffer(16 * 1024);
         audioBuffers.put(b);
     }
 

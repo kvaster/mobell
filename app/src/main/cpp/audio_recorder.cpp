@@ -12,6 +12,10 @@ AudioRecorder::AudioRecorder(AudioRecorderListener *callback) {
     audioEngineObj = nullptr;
     audioEngine = nullptr;
 
+    audioRecorderObj = nullptr;
+    audioRecorder = nullptr;
+    audioBufferQueue = nullptr;
+
     slCreateEngine(&audioEngineObj, 0, nullptr, 0, nullptr, nullptr);
     (*audioEngineObj)->Realize(audioEngineObj, SL_BOOLEAN_FALSE);
     (*audioEngineObj)->GetInterface(audioEngineObj, SL_IID_ENGINE, &audioEngine);
@@ -20,10 +24,10 @@ AudioRecorder::AudioRecorder(AudioRecorderListener *callback) {
             SL_DATALOCATOR_IODEVICE,
             SL_IODEVICE_AUDIOINPUT,
             SL_DEFAULTDEVICEID_AUDIOINPUT,
-            NULL
+            nullptr
     };
 
-    SLDataSource audioSrc = {&locDev, NULL};
+    SLDataSource audioSrc = {&locDev, nullptr};
 
     SLDataLocator_AndroidSimpleBufferQueue locBufq = {SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE,
                                                       QUEUE_BUFFERS};
@@ -73,7 +77,7 @@ AudioRecorder::AudioRecorder(AudioRecorderListener *callback) {
     (*audioBufferQueue)->RegisterCallback(audioBufferQueue, slesPlayerCallback, this);
 
     for (int i = 0; i < QUEUE_BUFFERS; i++) {
-        AudioBuffer *b = new AudioBuffer(QUEUE_BUFFER_SIZE);
+        auto *b = new AudioBuffer(QUEUE_BUFFER_SIZE);
         idleQueue.put(b);
     }
 }

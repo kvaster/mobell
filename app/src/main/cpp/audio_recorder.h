@@ -34,7 +34,7 @@ private:
     AudioBufferStack idleQueue;
 
 public:
-    void playerCallback(SLAndroidSimpleBufferQueueItf bq);
+    void playerCallback([[maybe_unused]] SLAndroidSimpleBufferQueueItf bq);
 };
 
 #endif // __AUDIO_RECORDER__
