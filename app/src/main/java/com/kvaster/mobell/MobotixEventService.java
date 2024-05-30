@@ -250,7 +250,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private Notification createServiceNofitication() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel ch = new NotificationChannel(CHAN_ID_FG, getString(R.string.s_notif_service), NotificationManager.IMPORTANCE_NONE);
+            NotificationChannel ch = new NotificationChannel(CHAN_ID_FG, getString(R.string.mobell_s_notif_service), NotificationManager.IMPORTANCE_NONE);
             notificationManager.createNotificationChannel(ch);
         }
 
@@ -262,10 +262,10 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHAN_ID_FG);
         builder.setContentIntent(contentIntent)
                 .setOngoing(true)
-                .setSmallIcon(R.drawable.ic_notification)
+                .setSmallIcon(R.drawable.mobell_ic_notification)
                 .setPriority(Notification.PRIORITY_MIN)
                 .setCategory(Notification.CATEGORY_SERVICE)
-                .setContentText(getResources().getString(R.string.notification_text));
+                .setContentText(getResources().getString(R.string.mobell_notification_text));
 
         return builder.build();
     }
@@ -468,7 +468,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     private Notification createCallNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel ch = new NotificationChannel(CHAN_ID_CALL, getString(R.string.s_notif_call), NotificationManager.IMPORTANCE_HIGH);
+            NotificationChannel ch = new NotificationChannel(CHAN_ID_CALL, getString(R.string.mobell_s_notif_call), NotificationManager.IMPORTANCE_HIGH);
             notificationManager.createNotificationChannel(ch);
         }
 
@@ -482,8 +482,8 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
         NotificationCompat.Builder builder =
                 new NotificationCompat.Builder(this, CHAN_ID_CALL)
-                        .setSmallIcon(R.drawable.ic_notification)
-                        .setContentTitle(getString(R.string.s_ringing))
+                        .setSmallIcon(R.drawable.mobell_ic_notification)
+                        .setContentTitle(getString(R.string.mobell_s_ringing))
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setCategory(NotificationCompat.CATEGORY_CALL)
                         .setAutoCancel(true)

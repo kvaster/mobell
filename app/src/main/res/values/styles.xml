@@ -1,12 +1,69 @@
 <resources>
 
-    <style name="AppTheme" parent="android:Theme.DeviceDefault.NoActionBar">
+    <style name="mobell_AppTheme" parent="android:Theme.DeviceDefault.NoActionBar">
         <!--<item name="windowNoTitle">true</item>-->
         <!--<item name="android:windowActionBar">false</item>-->
         <!--<item name="android:windowFullscreen">true</item>-->
         <!--<item name="android:windowContentOverlay">@null</item>-->
     </style>
 
-    <style name="SettingsTheme" parent="Theme.AppCompat">
+    <style name="mobell_SettingsTheme" parent="Theme.AppCompat">
     </style>
+
+    <style name="mobell_about_About" />
+
+    <style name="mobell_about_About.wrapper">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:gravity">center</item>
+        <item name="android:background">@color/mobell_about_background_color</item>
+    </style>
+
+    <style name="mobell_about_sub_wrapper">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:gravity">center</item>
+        <item name="android:padding">20dp</item>
+    </style>
+
+    <style name="mobell_about_image">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:gravity">center</item>
+        <item name="android:layout_marginBottom">30dp</item>
+        <item name="android:layout_marginTop">20dp</item>
+    </style>
+
+    <style name="mobell_about_description" parent="@android:style/TextAppearance">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:text">@string/mobell_about_page_description</item>
+        <item name="android:lineSpacingExtra">8dp</item>
+        <item name="android:layout_marginBottom">20dp</item>
+        <item name="android:textColor">@color/mobell_about_description_text_color</item>
+        <item name="android:textSize">@dimen/mobell_about_description_text_size</item>
+    </style>
+
+    <style name="mobell_about_separator">
+        <item name="android:layout_height">@dimen/mobell_about_separator_height</item>
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:background">@color/mobell_about_separator_color</item>
+        <item name="android:padding">0dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginTop">0dp</item>
+        <item name="android:layout_marginBottom">0dp</item>
+    </style>
+
+    <style name="mobell_about_elementTextAppearance" parent="@android:style/TextAppearance">
+        <item name="android:textColor">@color/mobell_about_text_color</item>
+        <item name="android:textSize">@dimen/mobell_about_item_text_size</item>
+    </style>
+
+    <style name="mobell_about_groupTextAppearance" parent="@android:style/TextAppearance">
+        <item name="android:textColor">@color/mobell_about_item_text_color</item>
+        <item name="android:textSize">@dimen/mobell_about_group_item_text_size</item>
+    </style>
+
 </resources>

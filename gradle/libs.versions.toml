@@ -1,0 +1,11 @@
+[versions]
+appcompat = "1.7.0"
+gradle = "8.4.1"
+preference = "1.2.1"
+kotlin = "1.9.22"
+
+[libraries]
+appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+gradle = { module = "com.android.tools.build:gradle", version.ref = "gradle" }
+preference = { module = "androidx.preference:preference", version.ref = "preference" }
+kotlinStd = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }

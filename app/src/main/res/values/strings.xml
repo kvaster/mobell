@@ -1,46 +1,46 @@
 <resources>
-    <string name="app_name">MoBell</string>
-    <string name="settings">Settings</string>
+    <string name="mobell_app_name">MoBell</string>
+    <string name="mobell_settings">Settings</string>
 
-    <string name="notification_text">MoBell service is running</string>
+    <string name="mobell_notification_text">MoBell service is running</string>
 
-    <string name="p_host">Host</string>
-    <string name="p_host_hint">host name or ip</string>
-    <string name="p_port">Port</string>
-    <string name="p_port_hint">port number</string>
-    <string name="p_login">Login</string>
-    <string name="p_login_hint">user login</string>
-    <string name="p_pass">Password</string>
-    <string name="p_pass_hint">user password</string>
-    <string name="p_pass_summary">***</string>
-    <string name="p_ringtone">Ringtone</string>
-    <string name="p_ringtone_none">none</string>
-    <string name="p_background">Run in background</string>
-    <string name="p_background_hint">Run as service in background. This may affect battery life.</string>
-    <string name="p_fast_wifi">Keep wifi fast</string>
-    <string name="p_fast_wifi_hint">Keep wifi in high performance mode in order to have less packet loss. This may affect battery life.</string>
-    <string name="p_disable_optimization">Disable battery optimization</string>
-    <string name="p_disable_optimization_hint">Disable battery optimizations for mobell. This is really required for stable connection on latest android. This may greatly affect battery life.</string>
-    <string name="p_keepalive">Keepalive delay</string>
-    <string name="p_keepalive_hint">Keepalive delay in seconds - maximum time between ping packets.</string>
-    <string name="p_read_timeout">Read timeout</string>
-    <string name="p_read_timeout_hint">Maximum time to keep connection in case no data.</string>
-    <string name="p_call_timeout">Call timeout</string>
-    <string name="p_call_timeout_hint">Maximum time of doorbell ring.</string>
-    <string name="p_reconnect_delay">Reconnect delay</string>
-    <string name="p_reconnect_delat_hint">Reconnect delay in seconds - maximum time between reconnect attempts on connection lost</string>
-    <string name="p_vibration">Vibration</string>
-    <string name="p_vibration_hint">Allow vibration if it\'s enabled in system settings.</string>
-    <string name="p_group_connection">Connection</string>
-    <string name="p_group_info">Info</string>
-    <string name="p_group_sound">Sound</string>
-    <string name="p_group_service">Background service</string>
-    <string name="p_group_expert">Expert</string>
-    <string name="s_notif_service">MoBell</string>
-    <string name="s_notif_call">MoBell Call</string>
-    <string name="s_ringing">Doorbell Ring!</string>
-    <string name="title_activity_about">About MoBell</string>
-    <string name="about_page_description">
+    <string name="mobell_p_host">Host</string>
+    <string name="mobell_p_host_hint">host name or ip</string>
+    <string name="mobell_p_port">Port</string>
+    <string name="mobell_p_port_hint">port number</string>
+    <string name="mobell_p_login">Login</string>
+    <string name="mobell_p_login_hint">user login</string>
+    <string name="mobell_p_pass">Password</string>
+    <string name="mobell_p_pass_hint">user password</string>
+    <string name="mobell_p_pass_summary">***</string>
+    <string name="mobell_p_ringtone">Ringtone</string>
+    <string name="mobell_p_ringtone_none">none</string>
+    <string name="mobell_p_background">Run in background</string>
+    <string name="mobell_p_background_hint">Run as service in background. This may affect battery life.</string>
+    <string name="mobell_p_fast_wifi">Keep wifi fast</string>
+    <string name="mobell_p_fast_wifi_hint">Keep wifi in high performance mode in order to have less packet loss. This may affect battery life.</string>
+    <string name="mobell_p_disable_optimization">Disable battery optimization</string>
+    <string name="mobell_p_disable_optimization_hint">Disable battery optimizations for mobell. This is really required for stable connection on latest android. This may greatly affect battery life.</string>
+    <string name="mobell_p_keepalive">Keepalive delay</string>
+    <string name="mobell_p_keepalive_hint">Keepalive delay in seconds - maximum time between ping packets.</string>
+    <string name="mobell_p_read_timeout">Read timeout</string>
+    <string name="mobell_p_read_timeout_hint">Maximum time to keep connection in case no data.</string>
+    <string name="mobell_p_call_timeout">Call timeout</string>
+    <string name="mobell_p_call_timeout_hint">Maximum time of doorbell ring.</string>
+    <string name="mobell_p_reconnect_delay">Reconnect delay</string>
+    <string name="mobell_p_reconnect_delat_hint">Reconnect delay in seconds - maximum time between reconnect attempts on connection lost</string>
+    <string name="mobell_p_vibration">Vibration</string>
+    <string name="mobell_p_vibration_hint">Allow vibration if it\'s enabled in system settings.</string>
+    <string name="mobell_p_group_connection">Connection</string>
+    <string name="mobell_p_group_info">Info</string>
+    <string name="mobell_p_group_sound">Sound</string>
+    <string name="mobell_p_group_service">Background service</string>
+    <string name="mobell_p_group_expert">Expert</string>
+    <string name="mobell_s_notif_service">MoBell</string>
+    <string name="mobell_s_notif_call">MoBell Call</string>
+    <string name="mobell_s_ringing">Doorbell Ring!</string>
+    <string name="mobell_title_activity_about">About MoBell</string>
+    <string name="mobell_about_page_description">
         <![CDATA[
         MoBell is simple intercom app for Mobotix T24/T25 door stations.
         MoBell does not require internet connection - it uses local tcp connection and tries not to eat battery.
@@ -48,5 +48,7 @@
         You can find mobell\'s source code on github - github is a nice place to add bug reports and feature requests :)
         ]]>
     </string>
-    <string name="about_version">Version %s</string>
+    <string name="mobell_about_version">Version %s</string>
+    <string name="mobell_about_play_store">Rate us on the Play Store</string>
+    <string name="mobell_about_github">Fork us on GitHub</string>
 </resources>

@@ -313,7 +313,7 @@ int MxpegRenderer::onStreamVideoPacket(uint8_t *data, size_t size) {
     bool ok = true;
     bool got = false;
     int ret = 0;
-    while (ret >= 0) {
+    while (true) {
         ret = avcodec_receive_frame(videoCodecCtx, videoWorkFrame);
 
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)

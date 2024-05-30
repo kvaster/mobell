@@ -643,16 +643,16 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     // java opengl part
 
     private enum Icon {
-        PHONE_ACCEPT(R.drawable.ic_phone_accept),
-        PHONE_REJECT(R.drawable.ic_phone_reject),
-        MIC_ON(R.drawable.ic_mic_on),
-        MIC_OFF(R.drawable.ic_mic_off),
-        VOLUME_ON(R.drawable.ic_volume_on),
-        VOLUME_OFF(R.drawable.ic_volume_off),
-        DOOR_OPEN(R.drawable.ic_door_open),
-        SUPPRESS(R.drawable.ic_suppress),
-        SETTINGS(R.drawable.ic_settings),
-        DEFAULT_SIZE(R.drawable.ic_default_size);
+        PHONE_ACCEPT(R.drawable.mobell_ic_phone_accept),
+        PHONE_REJECT(R.drawable.mobell_ic_phone_reject),
+        MIC_ON(R.drawable.mobell_ic_mic_on),
+        MIC_OFF(R.drawable.mobell_ic_mic_off),
+        VOLUME_ON(R.drawable.mobell_ic_volume_on),
+        VOLUME_OFF(R.drawable.mobell_ic_volume_off),
+        DOOR_OPEN(R.drawable.mobell_ic_door_open),
+        SUPPRESS(R.drawable.mobell_ic_suppress),
+        SETTINGS(R.drawable.mobell_ic_settings),
+        DEFAULT_SIZE(R.drawable.mobell_ic_default_size);
 
         int resId;
 

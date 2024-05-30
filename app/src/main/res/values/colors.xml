@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#3F51B5</color>
-    <color name="colorPrimaryDark">#303F9F</color>
-    <color name="colorAccent">#FF4081</color>
+    <color name="mobell_colorPrimary">#3F51B5</color>
+    <color name="mobell_colorPrimaryDark">#303F9F</color>
+    <color name="mobell_colorAccent">#FF4081</color>
+
+    <!-- General -->
+    <color name="mobell_about_item_icon_color">#313131</color>
+    <color name="mobell_about_background_color">#FFFFFF</color>
+    <color name="mobell_about_separator_color">#e1e1e1</color>
+
+    <!-- Social -->
+    <color name="mobell_about_play_store_color">#689F38</color>
+    <color name="mobell_about_github_color">#333333</color>
+
+    <!-- Text -->
+    <color name="mobell_about_description_text_color">#595959</color>
+    <color name="mobell_about_item_text_color">#7c7c7c</color>
+    <color name="mobell_about_text_color">#595959</color>
 </resources>
