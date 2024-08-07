@@ -1,10 +1,12 @@
 package com.kvaster.mobell;
 
+import static android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT;
 import static com.kvaster.mobell.AndroidUtils.TAG;
 
 import android.Manifest;
 import android.app.Activity;
 import android.app.KeyguardManager;
+import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
@@ -109,9 +111,7 @@ public class MainActivity extends Activity {
             Intent service = new Intent(this, MobotixEventService.class);
             bindService(service, connection, BIND_AUTO_CREATE);
 
-            if (checkPermissions()) {
-                app.allowRecording();
-            }
+            checkPermissions();
 
             view.resume();
         } catch (Throwable t) {
@@ -169,7 +169,17 @@ public class MainActivity extends Activity {
         // TODO process error
     }
 
-    private boolean checkPermissions() {
+    private void checkUseFullScreenIntent() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (!getSystemService(NotificationManager.class).canUseFullScreenIntent()) {
+                startActivity(new Intent(ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT));
+            } else {
+                Log.i(TAG, "FULLSCREEN");
+            }
+        }
+    }
+
+    private void checkPermissions() {
         String[] permissions = {
                 Manifest.permission.RECORD_AUDIO
         };
@@ -185,10 +195,11 @@ public class MainActivity extends Activity {
 
         if (req) {
             ActivityCompat.requestPermissions(this, permissions, 0);
-            return false;
-        }
+        } else {
+            app.allowRecording();
 
-        return true;
+            checkUseFullScreenIntent();
+        }
     }
 
     @Override
@@ -206,5 +217,7 @@ public class MainActivity extends Activity {
                 }
             }
         }
+
+        checkUseFullScreenIntent();
     }
 }
