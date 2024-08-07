@@ -307,12 +307,24 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         callTimeoutAlarm = fireAlarm(CALL_TIMEOUT_ACTION, callTimeout);
     }
 
+    @SuppressLint("MissingPermission")
     private PendingIntent fireAlarm(String action, long delayMillis) {
         Log.i(TAG, "MBE: alarm scheduled: " + action + " / " + delayMillis);
 
         Intent i = new Intent(this, MobotixEventService.class).setAction(action);
         PendingIntent pi = PendingIntent.getService(this, actionCounter.getAndIncrement(), i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + delayMillis, pi);
+
+        boolean allowExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || alarmManager.canScheduleExactAlarms();
+
+        if (allowExact) {
+            try {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + delayMillis, pi);
+            } catch (SecurityException e) {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + delayMillis, pi);
+            }
+        } else {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + delayMillis, pi);
+        }
 
         return pi;
     }

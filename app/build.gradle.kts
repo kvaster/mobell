@@ -19,9 +19,9 @@ android {
     defaultConfig {
         applicationId = "com.kvaster.mobell"
         minSdk = 23
-        targetSdk = 33
-        versionCode = 10
-        versionName = "1.7.0"
+        targetSdk = 34
+        versionCode = 11
+        versionName = "1.8.0"
         ndk {
             abiFilters += setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }

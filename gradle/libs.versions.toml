@@ -1,8 +1,8 @@
 [versions]
 appcompat = "1.7.0"
-gradle = "8.4.1"
+gradle = "8.5.1"
 preference = "1.2.1"
-kotlin = "1.9.22"
+kotlin = "2.0.0"
 
 [libraries]
 appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }

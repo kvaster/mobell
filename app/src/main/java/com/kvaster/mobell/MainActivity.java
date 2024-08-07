@@ -1,5 +1,7 @@
 package com.kvaster.mobell;
 
+import static com.kvaster.mobell.AndroidUtils.TAG;
+
 import android.Manifest;
 import android.app.Activity;
 import android.app.KeyguardManager;
@@ -14,11 +16,10 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.WindowManager.LayoutParams;
 import android.widget.FrameLayout;
+
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-
-import static com.kvaster.mobell.AndroidUtils.TAG;
 
 public class MainActivity extends Activity {
     private GlView view;
@@ -164,19 +165,13 @@ public class MainActivity extends Activity {
         }
     }
 
-//    @Override
-//    public void onBackPressed()
-//    {
-//        view.onBackButtonPressed();
-//    }
-
     private void onCatch(Throwable t) {
         // TODO process error
     }
 
     private boolean checkPermissions() {
         String[] permissions = {
-                Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.RECORD_AUDIO
         };
 
         boolean req = false;
