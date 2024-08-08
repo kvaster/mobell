@@ -18,6 +18,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ServiceInfo;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.Ringtone;
@@ -359,7 +360,11 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             } else {
                 Log.i(TAG, "MBE: service started, action: " + action);
                 // service start (or restart) requested
-                startForeground(NOTIF_ID_FG, serviceNotification);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(NOTIF_ID_FG, serviceNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL);
+                } else {
+                    startForeground(NOTIF_ID_FG, serviceNotification);
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "MBE: ERR", e);
@@ -481,6 +486,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private Notification createCallNotification() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel ch = new NotificationChannel(CHAN_ID_CALL, getString(R.string.mobell_s_notif_call), NotificationManager.IMPORTANCE_HIGH);
+            ch.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
             notificationManager.createNotificationChannel(ch);
         }
 
@@ -498,8 +504,10 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                         .setContentTitle(getString(R.string.mobell_s_ringing))
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setCategory(NotificationCompat.CATEGORY_CALL)
+                        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                         .setAutoCancel(true)
                         .setSilent(true)
+                        .setContentIntent(pi)
                         .setFullScreenIntent(pi, true);
 
         return builder.build();

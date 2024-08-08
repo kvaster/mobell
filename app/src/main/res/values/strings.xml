@@ -51,4 +51,12 @@
     <string name="mobell_about_version">Version %s</string>
     <string name="mobell_about_play_store">Rate us on the Play Store</string>
     <string name="mobell_about_github">Fork us on GitHub</string>
+
+    <string name="mobell_a_warning">Warning!</string>
+    <string name="mobell_a_info">Info!</string>
+    <string name="mobell_a_background_service_permissions">For background service to work, you need to grant notifications permissions.</string>
+    <string name="mobell_a_background_service_warning">Background service was disabled, because of permissions change. For background service to work, you need to re-enable it in the settings and grant all necessary permissions.</string>
+    <string name="mobell_a_yes">YES</string>
+    <string name="mobell_a_no">NO</string>
+    <string name="mobell_a_ok">OK</string>
 </resources>

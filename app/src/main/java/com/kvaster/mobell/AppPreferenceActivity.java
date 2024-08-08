@@ -1,15 +1,22 @@
 package com.kvaster.mobell;
 
+import static android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
+import android.Manifest;
+import android.app.AlertDialog;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Vibrator;
 import android.provider.Settings;
@@ -18,6 +25,8 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -87,18 +96,29 @@ public class AppPreferenceActivity extends AppCompatActivity {
                         ep.setOnBindEditTextListener(et -> et.setHint(hint));
                     }
 
-                    if (AppPreferences.DISABLE_OPTIMIZATION.equals(key)) {
-                        BattteryOptimizationPreference bp = (BattteryOptimizationPreference) p;
-                        bp.setLauncher(registerForActivityResult(
-                                new ActivityResultContracts.StartActivityForResult(),
-                                result -> {
-                                    bp.updateChecked();
-                                }));
-                    } else if (AppPreferences.VIBRATION.equals(key)) {
-                        if (!requireContext().getSystemService(Vibrator.class).hasVibrator()) {
-                            ((SwitchPreferenceCompat)p).setChecked(false);
-                            p.setEnabled(false);
-                        }
+                    switch (key) {
+                        case AppPreferences.DISABLE_OPTIMIZATION:
+                            BattteryOptimizationPreference bp = (BattteryOptimizationPreference) p;
+                            bp.setLauncher(registerForActivityResult(
+                                    new ActivityResultContracts.StartActivityForResult(),
+                                    result -> {
+                                        bp.updateChecked();
+                                    }));
+                            break;
+
+                        case AppPreferences.VIBRATION:
+                            if (!requireContext().getSystemService(Vibrator.class).hasVibrator()) {
+                                ((SwitchPreferenceCompat) p).setChecked(false);
+                                p.setEnabled(false);
+                            }
+                            break;
+
+                        case AppPreferences.SERVICE_BACKGROUND:
+                            p.setOnPreferenceChangeListener((pref, newValue) -> {
+                                boolean val = newValue instanceof Boolean && (Boolean) newValue;
+                                return !val || ((AppPreferenceActivity) requireActivity()).checkBackgroundServicePermissions();
+                            });
+                            break;
                     }
                 }
             }
@@ -140,7 +160,7 @@ public class AppPreferenceActivity extends AppCompatActivity {
             }
 
             if (AppPreferences.SERVICE_BACKGROUND.equals(pref.getKey())) {
-                boolean enabled = (Boolean) newValue;
+                boolean enabled = newValue instanceof Boolean && (Boolean) newValue;
                 Context ctx = requireActivity();
                 if (enabled) {
                     MobotixEventService.startService(ctx);
@@ -178,5 +198,44 @@ public class AppPreferenceActivity extends AppCompatActivity {
                 return super.onPreferenceTreeClick(p);
             }
         }
+    }
+
+    private boolean canUseFullScreenIntent() {
+        return (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+                || getSystemService(NotificationManager.class).canUseFullScreenIntent();
+    }
+
+    private boolean checkPostPermission() {
+        return (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean checkBackgroundServicePermissions() {
+        boolean canUseFullScreenIntent = canUseFullScreenIntent();
+        boolean postPermission = checkPostPermission();
+
+        if (canUseFullScreenIntent && postPermission) {
+            return true;
+        }
+
+        new AlertDialog.Builder(this)
+                .setMessage(R.string.mobell_a_background_service_permissions)
+                .setCancelable(false)
+                .setTitle(R.string.mobell_a_warning)
+                .setNegativeButton(R.string.mobell_a_no, (dialog, which) -> {
+                    dialog.dismiss();
+                })
+                .setPositiveButton(R.string.mobell_a_yes, (dialog, which) -> {
+                    if (!postPermission) {
+                        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 0);
+                    }
+                    if (!canUseFullScreenIntent) {
+                        startActivity(new Intent(ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).setData(Uri.parse("package:" + getPackageName())));
+                    }
+                })
+                .create().show();
+
+
+        return false;
     }
 }

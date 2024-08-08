@@ -1,10 +1,10 @@
 package com.kvaster.mobell;
 
-import static android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT;
 import static com.kvaster.mobell.AndroidUtils.TAG;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.KeyguardManager;
 import android.app.NotificationManager;
 import android.content.ComponentName;
@@ -106,6 +106,8 @@ public class MainActivity extends Activity {
         try {
             super.onStart();
 
+            checkBackgroundPermissions();
+
             MobotixEventService.startServiceIfEnabled(this);
 
             Intent service = new Intent(this, MobotixEventService.class);
@@ -169,36 +171,11 @@ public class MainActivity extends Activity {
         // TODO process error
     }
 
-    private void checkUseFullScreenIntent() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            if (!getSystemService(NotificationManager.class).canUseFullScreenIntent()) {
-                startActivity(new Intent(ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT));
-            } else {
-                Log.i(TAG, "FULLSCREEN");
-            }
-        }
-    }
-
     private void checkPermissions() {
-        String[] permissions = {
-                Manifest.permission.RECORD_AUDIO
-        };
-
-        boolean req = false;
-
-        for (String p : permissions) {
-            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
-                req = true;
-                break;
-            }
-        }
-
-        if (req) {
-            ActivityCompat.requestPermissions(this, permissions, 0);
-        } else {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             app.allowRecording();
-
-            checkUseFullScreenIntent();
+        } else {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 0);
         }
     }
 
@@ -217,7 +194,28 @@ public class MainActivity extends Activity {
                 }
             }
         }
+    }
 
-        checkUseFullScreenIntent();
+    private void checkBackgroundPermissions() {
+        if (AndroidUtils.getSharedPreferences(this).getBoolean(AppPreferences.SERVICE_BACKGROUND, false)) {
+            boolean canUseFullScreenIntent = (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+                    || getSystemService(NotificationManager.class).canUseFullScreenIntent();
+
+            boolean postPermission = (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)
+                    || ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+
+            if (!canUseFullScreenIntent || !postPermission) {
+                AndroidUtils.getSharedPreferences(this).edit().putBoolean(AppPreferences.SERVICE_BACKGROUND, false).apply();
+
+                new AlertDialog.Builder(this)
+                        .setMessage(R.string.mobell_a_background_service_warning)
+                        .setCancelable(false)
+                        .setTitle(R.string.mobell_a_warning)
+                        .setNeutralButton(R.string.mobell_a_ok, (dialog, which) -> {
+                            dialog.dismiss();
+                        })
+                        .create().show();
+            }
+        }
     }
 }
