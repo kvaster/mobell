@@ -50,7 +50,7 @@ public class MainActivity extends Activity {
 
         super.onCreate(savedInstanceState);
 
-        MobotixEventService.startServiceIfEnabled(this);
+        MobotixEventService.startBackgroundService(this);
 
         turnScreenOnAndKeyguardOff();
 
@@ -108,7 +108,7 @@ public class MainActivity extends Activity {
 
             checkBackgroundPermissions();
 
-            MobotixEventService.startServiceIfEnabled(this);
+            MobotixEventService.startService(this);
 
             Intent service = new Intent(this, MobotixEventService.class);
             bindService(service, connection, BIND_AUTO_CREATE);
@@ -131,9 +131,7 @@ public class MainActivity extends Activity {
             app.onServiceUnbind();
             unbindService(connection);
 
-            if (!AndroidUtils.getSharedPreferences(this).getBoolean(AppPreferences.SERVICE_BACKGROUND, false)) {
-                MobotixEventService.stopService(this);
-            }
+            MobotixEventService.stopBackgroundService(this);
 
             super.onStop();
         } catch (Throwable t) {

@@ -116,7 +116,7 @@ public class AppPreferenceActivity extends AppCompatActivity {
                         case AppPreferences.SERVICE_BACKGROUND:
                             p.setOnPreferenceChangeListener((pref, newValue) -> {
                                 boolean val = newValue instanceof Boolean && (Boolean) newValue;
-                                return !val || ((AppPreferenceActivity) requireActivity()).checkBackgroundServicePermissions();
+                                return (!val || ((AppPreferenceActivity) requireActivity()).checkBackgroundServicePermissions()) && onPreferenceChange(pref, newValue);
                             });
                             break;
                     }

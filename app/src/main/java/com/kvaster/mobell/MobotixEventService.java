@@ -105,19 +105,25 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         return binder;
     }
 
-    public static void startServiceIfEnabled(Context ctx) {
-        if (AndroidUtils.getSharedPreferences(ctx).getBoolean(AppPreferences.SERVICE_BACKGROUND, false)) {
-            startService(ctx, true);
+    public static boolean isBackgroundServiceEnabled(Context ctx) {
+        return AndroidUtils.getSharedPreferences(ctx).getBoolean(AppPreferences.SERVICE_BACKGROUND, false);
+    }
+
+    public static void startBackgroundService(Context ctx) {
+        if (isBackgroundServiceEnabled(ctx)) {
+            startService(ctx);
+        }
+    }
+
+    public static void stopBackgroundService(Context ctx) {
+        if (!isBackgroundServiceEnabled(ctx)) {
+            stopService(ctx);
         }
     }
 
     public static void startService(Context ctx) {
-        startService(ctx, false);
-    }
-
-    public static void startService(Context ctx, boolean forceForeground) {
         Intent i = new Intent(ctx, MobotixEventService.class);
-        if (forceForeground && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isBackgroundServiceEnabled(ctx)) {
             ctx.startForegroundService(i);
         } else {
             ctx.startService(i);
@@ -360,10 +366,12 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
             } else {
                 Log.i(TAG, "MBE: service started, action: " + action);
                 // service start (or restart) requested
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    startForeground(NOTIF_ID_FG, serviceNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL);
-                } else {
-                    startForeground(NOTIF_ID_FG, serviceNotification);
+                if (isBackgroundServiceEnabled(this)) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(NOTIF_ID_FG, serviceNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL);
+                    } else {
+                        startForeground(NOTIF_ID_FG, serviceNotification);
+                    }
                 }
             }
         } catch (Exception e) {
