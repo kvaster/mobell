@@ -39,6 +39,7 @@
     <string name="mobell_s_notif_service">MoBell</string>
     <string name="mobell_s_notif_call">MoBell Call</string>
     <string name="mobell_s_ringing">Doorbell Ring!</string>
+    <string name="mobell_s_ringing_text">Doorbell is ringing! Tap to open MoBell!</string>
     <string name="mobell_title_activity_about">About MoBell</string>
     <string name="mobell_about_page_description">
         <![CDATA[

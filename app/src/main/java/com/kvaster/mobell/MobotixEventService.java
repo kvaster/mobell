@@ -502,6 +502,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 new NotificationCompat.Builder(this, CHAN_ID_CALL)
                         .setSmallIcon(R.drawable.mobell_ic_notification)
                         .setContentTitle(getString(R.string.mobell_s_ringing))
+                        .setContentText(getString(R.string.mobell_s_ringing_text))
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setCategory(NotificationCompat.CATEGORY_CALL)
                         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
