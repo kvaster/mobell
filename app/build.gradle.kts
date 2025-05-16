@@ -13,16 +13,16 @@ if (keystorePropsFile.exists()) {
 }
 
 android {
-    compileSdk = 34
+    compileSdk = 35
 
     namespace = "com.kvaster.mobell"
 
     defaultConfig {
         applicationId = "com.kvaster.mobell"
         minSdk = 23
-        targetSdk = 34
-        versionCode = 16
-        versionName = "1.8.0"
+        targetSdk = 35
+        versionCode = 17
+        versionName = "1.8.1"
         ndk {
             abiFilters += setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
