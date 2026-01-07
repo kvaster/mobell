@@ -1,107 +1,97 @@
 #!/bin/bash
+set -euo pipefail
 
-BASEDIR=$(pwd)
+# --- 1. SETUP (Adjust these paths) ---
+NDK_PATH=/opt/android-sdk/ndk/29.0.14206865
+HOST_TAG=linux-x86_64
+TOOLCHAIN=$NDK_PATH/toolchains/llvm/prebuilt/$HOST_TAG
+API=24  # Min Android version
 
-target=$1
+# Output directory
+OUTPUT_DIR=$(pwd)/android_build
 
-if [[ "${target}" == "arm" ]]; then
-ARCH=arm
-CPU_ARCH=arm
-CPU=armv7-a
-TOOLCHAIN=arm-linux-androideabi
-NDK_ABI=arm-linux-androideabi
-PLATFORM=arm
+# Function to build a specific architecture
+build_arch() {
+    ARCH=$1       # ffmpeg arch (aarch64, arm, x86, x86_64)
+    CPU=$2        # ffmpeg cpu (armv8-a, armv7-a, i686, x86_64)
+    TRIPLE=$3     # Clang target triple prefix
+    ABI_NAME=$4   # Android ABI name (arm64-v8a, etc)
+    EXTRA_OPTS=$5 # Extra options
 
-elif [[ "${target}" == "arm64" ]]; then
-ARCH=arm64
-CPU_ARCH=arm64
-TOOLCHAIN=aarch64-linux-android
-NDK_ABI=aarch64-linux-android
-PLATFORM=arm64
+    echo "========================================"
+    echo "BUILDING FOR: $ABI_NAME ($ARCH)"
+    echo "========================================"
 
-elif [[ "${target}" == "x86" ]]; then
-ARCH=i686
-CPU_ARCH=i686
-TOOLCHAIN=x86
-NDK_ABI=i686-linux-android
-PLATFORM=x86
-DISABLE_ASM=true
+    # 1. Set Compiler Variables based on Architecture
+    export CC=$TOOLCHAIN/bin/${TRIPLE}${API}-clang
+    export CXX=$TOOLCHAIN/bin/${TRIPLE}${API}-clang++
+    export AR=$TOOLCHAIN/bin/llvm-ar
+    export NM=$TOOLCHAIN/bin/llvm-nm
+    export RANLIB=$TOOLCHAIN/bin/llvm-ranlib
+    export STRIP=$TOOLCHAIN/bin/llvm-strip
 
-elif [[ "${target}" == "x86_64" ]]; then
-ARCH=x86-64
-CPU_ARCH=x86_64
-TOOLCHAIN=x86_64
-NDK_ABI=x86_64-linux-android
-PLATFORM=x86_64
-DISABLE_ASM=true
+    # 2. Configure FFmpeg
+    ./configure \
+        --prefix=$OUTPUT_DIR/$ABI_NAME \
+        --target-os=android \
+        --arch=$ARCH \
+        --cpu=$CPU \
+        --cc=$CC \
+        --cxx=$CXX \
+        --ar=$AR \
+        --nm=$NM \
+        --ranlib=$RANLIB \
+        --strip=$STRIP \
+        --enable-cross-compile \
+        --sysroot=$TOOLCHAIN/sysroot \
+        \
+        --disable-debug \
+        --disable-doc \
+        --disable-ffplay \
+        --disable-ffprobe \
+        --disable-symver \
+        --disable-network \
+        --disable-everything \
+        \
+        --enable-decoder=pcm_alaw \
+        --enable-decoder=mxpeg \
+        --enable-demuxer=mxg \
+        \
+        --disable-avformat \
+        --disable-avdevice \
+        --disable-swscale \
+        --disable-swresample \
+        --disable-avfilter \
+        --disable-pixelutils \
+        \
+        --disable-shared \
+        --enable-static \
+        --enable-pic \
+        --extra-cflags="-O3 -fPIC -DPIC -DANDROID" \
+        $EXTRA_OPTS
 
-else
-echo "Wrong targer: ${target}"
-exit 2
-fi
+    # 3. Compile
+    make clean
+    make -j$(nproc)
+    make install
 
-NDK_VERSION="22.0.7026061"
-ANDROID_NDK=${ANDROID_HOME}/ndk/${NDK_VERSION}
+    echo ">> INSTALLED $ABI_NAME to $OUTPUT_DIR/$ABI_NAME"
+}
 
-ANDROID_PLATFORM=23
+# --- 2. EXECUTE BUILDS ---
 
-TOOLCHAIN_PREFIX=toolchains/toolchain-${PLATFORM}
-CROSS_PREFIX=${TOOLCHAIN_PREFIX}/bin/${NDK_ABI}-
+# ARM 64-bit (REQUIRED for Play Store & 16KB Pages)
+build_arch "aarch64" "armv8-a" "aarch64-linux-android" "arm64-v8a" ""
 
-PLATFORM_PREFIX=${ANDROID_HOME}/ndk-bundle/platforms/android-${ANDROID_PLATFORM}/arch-${PLATFORM}/
-SYSROOT=${TOOLCHAIN_PREFIX}/sysroot
-CFLAGS='-O3 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fno-strict-overflow -DANDROIDi -fPIC -fstack-protector-all -fno-sanitize=undefined'
-CXXFLASG='-fPIC -fno-sanitize=undefined'
-LDFLAGS='-pie -lc -lm -ldl -llog -Wl,-z,relro -Wl,-z,now -fPIC'
+# ARM 32-bit (Legacy / Low-end devices)
+build_arch "arm" "armv7-a" "armv7a-linux-androideabi" "armeabi-v7a" ""
 
-python ${ANDROID_NDK}/build/tools/make_standalone_toolchain.py \
-    --arch ${PLATFORM} \
-    --api ${ANDROID_PLATFORM} \
-    --stl libc++ \
-    --install-dir=${TOOLCHAIN_PREFIX}
+# x86 64-bit (Emulator / ChromeOS)
+build_arch "x86_64" "generic" "x86_64-linux-android" "x86_64" "--disable-x86asm"
 
-CFG="./configure"
-CFG="$CFG --prefix=$(pwd)/android/${ARCH}"
-CFG="$CFG --target-os=linux"
-CFG="$CFG --toolchain=clang-usan"
-CFG="$CFG --cross-prefix=${CROSS_PREFIX}"
-CFG="$CFG --arch=${CPU_ARCH}"
-if [ ! -z "${CPU}" ]; then
-  CFG="$CFG --cpu=${CPU}"
-fi
-if [ ! -z "${DISABLE_ASM}" ]; then
-  CFG="$CFG --disable-asm"
-fi
-CFG="$CFG --enable-runtime-cpudetect"
-CFG="$CFG --sysroot=${SYSROOT}"
-CFG="$CFG --enable-pic"
-CFG="$CFG --disable-debug"
-CFG="$CFG --disable-stripping"
-CFG="$CFG --disable-version3"
-CFG="$CFG --enable-hardcoded-tables"
-CFG="$CFG --disable-ffplay"
-CFG="$CFG --disable-ffprobe"
-CFG="$CFG --disable-gpl"
-CFG="$CFG --disable-doc"
-CFG="$CFG --disable-shared"
-CFG="$CFG --enable-static"
-CFG="$CFG --extra-cflags=\"$CFLAGS\""
-CFG="$CFG --extra-ldflags=\"$LDFLAGS\""
-CFG="$CFG --extra-cxxflags=\"$CXXFLAGS\""
-CFG="$CFG --extra-libs=\"-lgcc\""
-CFG="$CFG --pkg-config=./ffmpeg-pkg-config"
-CFG="$CFG --disable-everything"
-CFG="$CFG --enable-decoder=pcm_alaw"
-CFG="$CFG --enable-decoder=mxpeg"
-CFG="$CFG --enable-demuxer=mxg"
-CFG="$CFG --disable-avformat"
-CFG="$CFG --disable-avdevice"
-CFG="$CFG --disable-swscale"
-CFG="$CFG --disable-swresample"
-CFG="$CFG --disable-postproc"
-CFG="$CFG --disable-avfilter"
-CFG="$CFG --disable-network"
-CFG="$CFG --disable-pixelutils"
+# x86 32-bit (Legacy Emulator)
+build_arch "x86" "i686" "i686-linux-android" "x86" "--disable-x86asm"
 
-sh -c "${CFG}"
-
+echo "========================================"
+echo "ALL BUILDS COMPLETE"
+echo "========================================"

@@ -34,7 +34,9 @@
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:exported="true"
             android:launchMode="singleTask"
-            android:showOnLockScreen="true">
+            android:showForAllUsers="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

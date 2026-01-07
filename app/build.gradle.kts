@@ -1,8 +1,8 @@
 import java.util.Properties
 
 plugins {
-    id("com.android.application")
-    alias(libs.plugins.versions)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.android.application)
 }
 
 val keystorePropsFile = File(project.rootDir, ".keystore.properties")
@@ -13,16 +13,17 @@ if (keystorePropsFile.exists()) {
 }
 
 android {
-    compileSdk = 35
+    compileSdk = 36
+    ndkVersion = "29.0.14206865"
 
     namespace = "com.kvaster.mobell"
 
     defaultConfig {
         applicationId = "com.kvaster.mobell"
-        minSdk = 23
-        targetSdk = 35
-        versionCode = 17
-        versionName = "1.8.1"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = 18
+        versionName = "1.8.2"
         ndk {
             abiFilters += setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
@@ -50,10 +51,9 @@ android {
         getByName("release") {
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
-            ndk {
-                debugSymbolLevel = "FULL"
-            }
+//            ndk {
+//                debugSymbolLevel = "FULL"
+//            }
 
             if (signingConfigs.getByName("release").storeFile?.exists() == true) {
                 signingConfig = signingConfigs.getByName("release")
@@ -80,5 +80,5 @@ android {
 dependencies {
     implementation(libs.appcompat)
     implementation(libs.preference)
-    implementation(libs.kotlinStd)
+    implementation(libs.kotlin.stdlib)
 }

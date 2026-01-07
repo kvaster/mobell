@@ -216,7 +216,7 @@ void MxpegRenderer::onStreamStart(int audioType) {
     audioCodecCtx = avcodec_alloc_context3(audioCodec);
     // mono, 8khz
     audioCodecCtx->sample_rate = 8000;
-    audioCodecCtx->channels = 1;
+    av_channel_layout_default(&audioCodecCtx->ch_layout, 1);
     avcodec_open2(audioCodecCtx, audioCodec, nullptr);
 
     // audio engine

@@ -185,7 +185,6 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         // call notification
         callNotification = createCallNotification();
 
-
         // we need wifi lock to receive packets over wifi even in sleep mode
         lockWifi();
 
@@ -500,7 +499,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
         // only for test purposes
         Intent i = new Intent(this, MainActivity.class);
-        i.setAction(Intent.ACTION_MAIN);
+        i.setAction(Intent.ACTION_CALL);
         i.addCategory(Intent.CATEGORY_LAUNCHER);
         i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
@@ -515,7 +514,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                         .setCategory(NotificationCompat.CATEGORY_CALL)
                         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                         .setAutoCancel(true)
-                        .setSilent(true)
+                        .setSilent(false)
                         .setContentIntent(pi)
                         .setFullScreenIntent(pi, true);
 
