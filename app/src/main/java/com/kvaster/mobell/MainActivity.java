@@ -62,6 +62,17 @@ public class MainActivity extends Activity {
 
         FrameLayout layout = new FrameLayout(this);
         layout.addView(view);
+
+        layout.setOnApplyWindowInsetsListener((v, insets) -> {
+            app.updateInsets(
+                    insets.getSystemWindowInsetLeft(),
+                    insets.getSystemWindowInsetTop(),
+                    insets.getSystemWindowInsetRight(),
+                    insets.getSystemWindowInsetBottom()
+            );
+            return insets;
+        });
+
         setContentView(layout);
     }
 

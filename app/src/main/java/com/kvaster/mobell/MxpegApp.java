@@ -50,6 +50,11 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     private int canvasWidth;
     private int canvasHeight;
 
+    private int insetLeft;
+    private int insetTop;
+    private int insetRight;
+    private int insetBottom;
+
     private final AudioManager audioManager;
 
     private GlView view;
@@ -277,6 +282,17 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         MxpegNative.canvasSizeChanged(width, height);
     }
 
+    public void updateInsets(int left, int top, int right, int bottom) {
+        this.insetLeft = left;
+        this.insetTop = top;
+        this.insetRight = right;
+        this.insetBottom = bottom;
+
+        if (view != null) {
+            view.requestRender();
+        }
+    }
+
     @Override
     public void update() {
         MxpegNative.update();
@@ -483,8 +499,9 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
     }
 
     private synchronized void drawActions() {
-        int x = (canvasWidth - (iconSize * actions.length + iconDist * (actions.length - 1))) / 2;
-        int y = canvasHeight - iconSize - toolIconDist;
+        int safeWidth = canvasWidth - insetLeft - insetRight;
+        int x = insetLeft + (safeWidth - (iconSize * actions.length + iconDist * (actions.length - 1))) / 2;
+        int y = canvasHeight - insetBottom - iconSize - toolIconDist;
 
         for (Action a : actions) {
             a.x = x;
@@ -497,16 +514,16 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
             x += iconSize + iconDist;
         }
 
-        settingsAction.x = canvasWidth - toolIconSize - toolIconDist;
-        settingsAction.y = canvasHeight - toolIconSize - toolIconDist;
+        settingsAction.x = canvasWidth - insetRight - toolIconSize - toolIconDist;
+        settingsAction.y = canvasHeight - insetBottom - toolIconSize - toolIconDist;
         settingsAction.w = settingsAction.h = toolIconSize;
         drawAction(settingsAction);
 
         if (scale == 1 && panX == 0 && panY == 0) {
             sizeAction.resetSize();
         } else {
-            sizeAction.x = toolIconDist;
-            sizeAction.y = canvasHeight - toolIconSize - toolIconDist;
+            sizeAction.x = insetLeft + toolIconDist;
+            sizeAction.y = canvasHeight - insetBottom - toolIconSize - toolIconDist;
             sizeAction.w = sizeAction.h = toolIconSize;
             drawAction(sizeAction);
         }
