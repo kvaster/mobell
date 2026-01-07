@@ -5,7 +5,7 @@ set -euo pipefail
 NDK_PATH=/opt/android-sdk/ndk/29.0.14206865
 HOST_TAG=linux-x86_64
 TOOLCHAIN=$NDK_PATH/toolchains/llvm/prebuilt/$HOST_TAG
-API=24  # Min Android version
+API=23  # Min Android version
 
 # Output directory
 OUTPUT_DIR=$(pwd)/android_build
