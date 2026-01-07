@@ -2,10 +2,6 @@ package com.kvaster.mobell;
 
 import static android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-
 import android.Manifest;
 import android.app.AlertDialog;
 import android.app.NotificationManager;
@@ -13,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -21,17 +18,30 @@ import android.os.Bundle;
 import android.os.Vibrator;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.view.View;
+
+import androidx.activity.EdgeToEdge;
+import androidx.activity.SystemBarStyle;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceGroup;
 import androidx.preference.SwitchPreferenceCompat;
+import androidx.recyclerview.widget.RecyclerView;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 
 public class AppPreferenceActivity extends AppCompatActivity {
     private static final Map<String, Integer> hintsMap = new HashMap<>();
@@ -48,6 +58,11 @@ public class AppPreferenceActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        EdgeToEdge.enable(this,
+                SystemBarStyle.dark(Color.TRANSPARENT),
+                SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT)
+        );
+
         super.onCreate(savedInstanceState);
         getSupportFragmentManager()
                 .beginTransaction()
@@ -76,6 +91,21 @@ public class AppPreferenceActivity extends AppCompatActivity {
             addPreferencesFromResource(R.xml.mobell_preferences);
 
             walkSettings(getPreferenceScreen(), getPreferenceManager().getSharedPreferences());
+        }
+
+        @Override
+        public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+            super.onViewCreated(view, savedInstanceState);
+
+            RecyclerView list = getListView();
+            list.setClipToPadding(false);
+
+            ViewCompat.setOnApplyWindowInsetsListener(view, (v, windowInsets) -> {
+                Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+                list.setPadding(insets.left, 0, insets.right, insets.bottom);
+                view.setPadding(0, insets.top, 0, 0);
+                return windowInsets;
+            });
         }
 
         private void walkSettings(PreferenceGroup group, SharedPreferences prefs) {
