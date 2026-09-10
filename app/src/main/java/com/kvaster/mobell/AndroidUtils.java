@@ -1,7 +1,12 @@
 package com.kvaster.mobell;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
+
+import androidx.core.content.ContextCompat;
 
 import java.net.NetworkInterface;
 import java.util.Collections;
@@ -9,6 +14,12 @@ import java.util.List;
 
 public class AndroidUtils {
     public static final String TAG = "kvaster-mobell";
+
+    public static boolean hasLocalNetworkPermission(Context ctx) {
+        return Build.VERSION.SDK_INT < 37
+                || ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_LOCAL_NETWORK)
+                == PackageManager.PERMISSION_GRANTED;
+    }
 
     public static String getMacAddr() {
         try {

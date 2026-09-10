@@ -1,20 +1,17 @@
 [versions]
 
-appcompat = "1.7.1"
-agp = "8.13.2"
+appcompat = "1.8.0"
+agp = "9.4.0"
 preference = "1.2.1"
-kotlin = "2.3.0"
-caupian = "1.7.1"
+caupian = "1.10.1"
 
 [plugins]
 
 caupain = { id = "com.deezer.caupain", version.ref = "caupian" }
 
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 
 [libraries]
 
 appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 preference = { module = "androidx.preference:preference", version.ref = "preference" }
-kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }

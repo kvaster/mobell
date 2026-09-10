@@ -1,7 +1,6 @@
 import java.util.Properties
 
 plugins {
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.android.application)
 }
 
@@ -13,7 +12,7 @@ if (keystorePropsFile.exists()) {
 }
 
 android {
-    compileSdk = 36
+    compileSdk = 37
     ndkVersion = "29.0.14206865"
 
     namespace = "com.kvaster.mobell"
@@ -21,9 +20,9 @@ android {
     defaultConfig {
         applicationId = "com.kvaster.mobell"
         minSdk = 23
-        targetSdk = 36
-        versionCode = 19
-        versionName = "1.8.3"
+        targetSdk = 37
+        versionCode = 20
+        versionName = "1.9.0"
         ndk {
             abiFilters += setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
@@ -72,13 +71,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    productFlavors {
-    }
-    resourcePrefix("mobell")
+    resourcePrefix = "mobell"
 }
 
 dependencies {
     implementation(libs.appcompat)
     implementation(libs.preference)
-    implementation(libs.kotlin.stdlib)
 }

@@ -182,6 +182,14 @@ public class MxpegApp implements GlApp, MxpegStreamer.Listener, AudioRecorderLis
         recordingEnabled = true;
     }
 
+    public void startStreaming() {
+        streamer.start();
+    }
+
+    public void stopStreaming() {
+        streamer.stop();
+    }
+
     private synchronized void requestStartRecording() {
         if (recordingEnabled) {
             recordingRequested = true;

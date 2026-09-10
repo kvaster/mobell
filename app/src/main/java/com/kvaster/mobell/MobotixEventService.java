@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -73,7 +74,6 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     private PendingIntent callTimeoutAlarm; // used only with synchronized
 
     private Notification serviceNotification;
-    private Notification callNotification;
 
     private final AtomicInteger actionCounter = new AtomicInteger();
 
@@ -122,6 +122,9 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     }
 
     public static void startService(Context ctx) {
+        if (!AndroidUtils.hasLocalNetworkPermission(ctx)) {
+            return;
+        }
         Intent i = new Intent(ctx, MobotixEventService.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isBackgroundServiceEnabled(ctx)) {
             ctx.startForegroundService(i);
@@ -182,9 +185,6 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
         // we need to create notification for foreground service
         serviceNotification = createServiceNofitication();
-        // call notification
-        callNotification = createCallNotification();
-
         // we need wifi lock to receive packets over wifi even in sleep mode
         lockWifi();
 
@@ -337,6 +337,10 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
 
     @Override
     public synchronized int onStartCommand(Intent intent, int flags, int startId) {
+        if (!AndroidUtils.hasLocalNetworkPermission(this)) {
+            stopSelf();
+            return Service.START_NOT_STICKY;
+        }
         try {
             String action = intent == null ? null : intent.getAction();
 
@@ -367,7 +371,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                 // service start (or restart) requested
                 if (isBackgroundServiceEnabled(this)) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        startForeground(NOTIF_ID_FG, serviceNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL);
+                        startForeground(NOTIF_ID_FG, serviceNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
                     } else {
                         startForeground(NOTIF_ID_FG, serviceNotification);
                     }
@@ -491,9 +495,27 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
     }
 
     private Notification createCallNotification() {
+        String channelId = CHAN_ID_CALL;
+        String ringtoneUri = prefs.getString(AppPreferences.RINGTONE, Settings.System.DEFAULT_RINGTONE_URI.toString());
+        // The system applies the current ringer mode; channel identity uses saved preferences only.
+        boolean vibrate = prefs.getBoolean(AppPreferences.VIBRATION, true);
+        if (Build.VERSION.SDK_INT >= 37) {
+            // Channel sound settings are immutable. A preference change needs a new channel.
+            channelId += "-" + Integer.toHexString(Objects.hash(ringtoneUri, vibrate));
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel ch = new NotificationChannel(CHAN_ID_CALL, getString(R.string.mobell_s_notif_call), NotificationManager.IMPORTANCE_HIGH);
+            NotificationChannel ch = new NotificationChannel(channelId, getString(R.string.mobell_s_notif_call), NotificationManager.IMPORTANCE_HIGH);
             ch.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+            if (Build.VERSION.SDK_INT >= 37) {
+                // System notifications can ring even when boot-started services lack audio access.
+                AudioAttributes attrs = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build();
+                ch.setSound(TextUtils.isEmpty(ringtoneUri) ? null : Uri.parse(ringtoneUri), attrs);
+                ch.setVibrationPattern(new long[]{0, 250, 250, 250});
+                ch.enableVibration(vibrate);
+            }
             notificationManager.createNotificationChannel(ch);
         }
 
@@ -506,7 +528,7 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         PendingIntent pi = PendingIntent.getActivity(this, 0, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         NotificationCompat.Builder builder =
-                new NotificationCompat.Builder(this, CHAN_ID_CALL)
+                new NotificationCompat.Builder(this, channelId)
                         .setSmallIcon(R.drawable.mobell_ic_notification)
                         .setContentTitle(getString(R.string.mobell_s_ringing))
                         .setContentText(getString(R.string.mobell_s_ringing_text))
@@ -518,11 +540,15 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
                         .setContentIntent(pi)
                         .setFullScreenIntent(pi, true);
 
-        return builder.build();
+        Notification notification = builder.build();
+        if (Build.VERSION.SDK_INT >= 37) {
+            notification.flags |= Notification.FLAG_INSISTENT;
+        }
+        return notification;
     }
 
     private void fireCallNotification() {
-        notificationManager.notify(NOTIF_ID_CALL, callNotification);
+        notificationManager.notify(NOTIF_ID_CALL, createCallNotification());
         scheduleCallTimeout();
     }
 
@@ -644,7 +670,9 @@ public class MobotixEventService extends Service implements MxpegStreamer.Listen
         if (status == CallStatus.UNACCEPTED) {
             // acquire lock only for call time with some gap
             callWakeLock.acquire(callTimeout + TimeUnit.SECONDS.toMillis(5));
-            playRingtone();
+            if (Build.VERSION.SDK_INT < 37) {
+                playRingtone();
+            }
             fireCallNotification();
         } else {
             callWakeLock.release();

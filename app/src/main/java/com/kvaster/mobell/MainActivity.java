@@ -11,9 +11,11 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.WindowManager.LayoutParams;
@@ -23,9 +25,16 @@ import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MainActivity extends Activity {
+    private static final int REQUEST_PERMISSIONS = 0;
+
     private GlView view;
     private MxpegApp app;
+    private boolean started;
+    private boolean serviceBound;
 
     private final ServiceConnection connection = new ServiceConnection() {
         @Override
@@ -49,8 +58,6 @@ public class MainActivity extends Activity {
         Log.i(TAG, "On create");
 
         super.onCreate(savedInstanceState);
-
-        MobotixEventService.startBackgroundService(this);
 
         turnScreenOnAndKeyguardOff();
 
@@ -116,17 +123,13 @@ public class MainActivity extends Activity {
 
         try {
             super.onStart();
+            started = true;
 
             checkBackgroundPermissions();
 
-            MobotixEventService.startService(this);
-
-            Intent service = new Intent(this, MobotixEventService.class);
-            bindService(service, connection, BIND_AUTO_CREATE);
-
-            checkPermissions();
-
             view.resume();
+            updateLocalNetworkAccess();
+            checkPermissions();
         } catch (Throwable t) {
             onCatch(t);
         }
@@ -137,10 +140,10 @@ public class MainActivity extends Activity {
         Log.i(TAG, "On stop");
 
         try {
+            started = false;
             view.suspend();
 
-            app.onServiceUnbind();
-            unbindService(connection);
+            unbindCameraService();
 
             MobotixEventService.stopBackgroundService(this);
 
@@ -158,6 +161,7 @@ public class MainActivity extends Activity {
             super.onResume();
 
             view.unpause();
+            updateLocalNetworkAccess();
         } catch (Throwable t) {
             onCatch(t);
         }
@@ -177,14 +181,47 @@ public class MainActivity extends Activity {
     }
 
     private void onCatch(Throwable t) {
-        // TODO process error
+        Log.e(TAG, "Activity lifecycle error", t);
+    }
+
+    private void unbindCameraService() {
+        if (serviceBound) {
+            app.onServiceUnbind();
+            unbindService(connection);
+            serviceBound = false;
+        }
+    }
+
+    private void updateLocalNetworkAccess() {
+        if (!started) {
+            return;
+        }
+        if (AndroidUtils.hasLocalNetworkPermission(this)) {
+            if (!serviceBound) {
+                MobotixEventService.startService(this);
+                Intent service = new Intent(this, MobotixEventService.class);
+                serviceBound = bindService(service, connection, BIND_AUTO_CREATE);
+            }
+            app.startStreaming();
+        } else {
+            app.stopStreaming();
+            unbindCameraService();
+            MobotixEventService.stopService(this);
+        }
     }
 
     private void checkPermissions() {
+        List<String> permissions = new ArrayList<>();
+        if (!AndroidUtils.hasLocalNetworkPermission(this)) {
+            permissions.add(Manifest.permission.ACCESS_LOCAL_NETWORK);
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             app.allowRecording();
         } else {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 0);
+            permissions.add(Manifest.permission.RECORD_AUDIO);
+        }
+        if (!permissions.isEmpty()) {
+            ActivityCompat.requestPermissions(this, permissions.toArray(new String[0]), REQUEST_PERMISSIONS);
         }
     }
 
@@ -194,15 +231,30 @@ public class MainActivity extends Activity {
             @NonNull String[] permissions,
             @NonNull int[] grantResults
     ) {
-        int count = permissions.length;
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_PERMISSIONS) {
+            return;
+        }
 
+        int count = Math.min(permissions.length, grantResults.length);
         for (int i = 0; i < count; i++) {
             if (Manifest.permission.RECORD_AUDIO.equals(permissions[i])) {
                 if (grantResults[i] == PackageManager.PERMISSION_GRANTED) {
                     app.allowRecording();
                 }
+            } else if (Manifest.permission.ACCESS_LOCAL_NETWORK.equals(permissions[i])
+                    && grantResults[i] != PackageManager.PERMISSION_GRANTED) {
+                new AlertDialog.Builder(this)
+                        .setTitle(R.string.mobell_a_local_network_title)
+                        .setMessage(R.string.mobell_a_local_network_permission)
+                        .setNegativeButton(R.string.mobell_a_ok, null)
+                        .setPositiveButton(R.string.mobell_settings, (dialog, which) ->
+                                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                        .setData(Uri.parse("package:" + getPackageName()))))
+                        .show();
             }
         }
+        updateLocalNetworkAccess();
     }
 
     private void checkBackgroundPermissions() {

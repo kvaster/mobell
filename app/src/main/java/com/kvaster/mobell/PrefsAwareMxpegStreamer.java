@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 public class PrefsAwareMxpegStreamer extends MxpegStreamer implements SharedPreferences.OnSharedPreferenceChangeListener {
+    private final Context context;
     private final SharedPreferences prefs;
 
     public PrefsAwareMxpegStreamer(
@@ -14,20 +15,10 @@ public class PrefsAwareMxpegStreamer extends MxpegStreamer implements SharedPref
             int readTimeout,
             long reconnectDelay
     ) {
-        this(AndroidUtils.getSharedPreferences(ctx), listener, bufferSize, ringBufferSize, readTimeout, reconnectDelay);
-    }
-
-    public PrefsAwareMxpegStreamer(
-            SharedPreferences prefs,
-            Listener listener,
-            int bufferSize,
-            int ringBufferSize,
-            int readTimeout,
-            long reconnectDelay
-    ) {
         super(listener, bufferSize, ringBufferSize, readTimeout, reconnectDelay);
 
-        this.prefs = prefs;
+        context = ctx.getApplicationContext();
+        prefs = AndroidUtils.getSharedPreferences(context);
     }
 
     @Override
@@ -56,6 +47,9 @@ public class PrefsAwareMxpegStreamer extends MxpegStreamer implements SharedPref
 
     @Override
     public void start() {
+        if (!AndroidUtils.hasLocalNetworkPermission(context)) {
+            return;
+        }
         prefs.registerOnSharedPreferenceChangeListener(this);
         super.start();
     }

@@ -55,6 +55,8 @@
 
     <string name="mobell_a_warning">Warning!</string>
     <string name="mobell_a_info">Info!</string>
+    <string name="mobell_a_local_network_title">Allow nearby devices</string>
+    <string name="mobell_a_local_network_permission">MoBell needs nearby devices permission to connect to your door station. Allow it in app permissions to use video, audio, and doorbell notifications.</string>
     <string name="mobell_a_background_service_permissions">For background service to work, you need to grant notifications permissions.</string>
     <string name="mobell_a_background_service_warning">Background service was disabled, because of permissions change. For background service to work, you need to re-enable it in the settings and grant all necessary permissions.</string>
     <string name="mobell_a_yes">YES</string>

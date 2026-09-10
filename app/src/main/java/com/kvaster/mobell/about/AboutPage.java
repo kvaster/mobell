@@ -133,7 +133,7 @@ public class AboutPage {
         }
 
         TypedValue outValue = new TypedValue();
-        mContext.getTheme().resolveAttribute(R.attr.selectableItemBackground, outValue, true);
+        mContext.getTheme().resolveAttribute(androidx.appcompat.R.attr.selectableItemBackground, outValue, true);
         wrapper.setBackgroundResource(outValue.resourceId);
 
         int padding = mContext.getResources().getDimensionPixelSize(R.dimen.mobell_about_text_padding);
